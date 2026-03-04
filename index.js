@@ -3,6 +3,8 @@
  * MEGA MIND BOT v3.0.0
  * PROFESSOR Edition - Command Status Reactions
  */
+const db = require('./lib/database');
+global.db = db; // Make it globally accessible
 
 const { 
   default: makeWASocket, 
