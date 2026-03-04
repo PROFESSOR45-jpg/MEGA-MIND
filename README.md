@@ -60,7 +60,7 @@
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `SESSION_ID` | ✅ | From [Session Generator](https://mega-mind-session.onrender.com/) |
-| `OWNER_NUMBER` | ✅ | Your WhatsApp number (+1234567890) |
+| `OWNER_NUMBER` | ✅ | Your WhatsApp number (+254112658916) |
 | `BOT_NAME` | ❌ | Default: MEGA MIND |
 
 ---
