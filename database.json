@@ -1,0 +1,29 @@
+{
+  "users": {},
+  "groups": {},
+  "settings": {
+    "prefix": ".",
+    "botName": "MEGA MIND",
+    "owner": "",
+    "mods": [],
+    "autoread": false,
+    "antidelete": true,
+    "antilink": false,
+    "welcome": true,
+    "goodbye": true
+  },
+  "stats": {
+    "commands": 0,
+    "messages": 0,
+    "groups": 0,
+    "users": 0,
+    "startTime": null
+  },
+  "afk": {},
+  "notes": {},
+  "reminders": [],
+  "economy": {},
+  "level": {},
+  "inventory": {},
+  "cooldowns": {}
+}
