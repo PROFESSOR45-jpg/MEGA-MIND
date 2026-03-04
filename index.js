@@ -1,162 +1,110 @@
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
-const pino = require('pino');
-const fs = require('fs-extra');
-const sessionManager = require('./lib/sessionManager');
-const { SESSION_CONFIG, BOT_CONFIG } = require('./config');
+const {
+ default: makeWASocket,
+ useMultiFileAuthState,
+ fetchLatestBaileysVersion,  // ADD THIS
+ DisconnectReason,
+ Browsers,  // ADD THIS
+ makeCacheableSignalKeyStore  // ADD THIS
+} = require('@whiskeysockets/baileys');
 
-const logger = pino({ level: 'silent' });
-
-async function startBot() {
-    console.log(`
-    ███╗   ███╗███████╗ ██████╗  █████╗     ███╗   ███╗██╗███╗   ██╗██████╗ 
-    ████╗ ████║██╔════╝██╔════╝ ██╔══██╗    ████╗ ████║██║████╗  ██║██╔══██╗
-    ██╔████╔██║█████╗  ██║  ███╗███████║    ██╔████╔██║██║██╔██╗ ██║██║  ██║
-    ██║╚██╔╝██║██╔══╝  ██║   ██║██╔══██║    ██║╚██╔╝██║██║██║╚██╗██║██║  ██║
-    ██║ ╚═╝ ██║███████╗╚██████╔╝██║  ██║    ██║ ╚═╝ ██║██║██║ ╚████║██████╔╝
-    ╚═╝     ╚═╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝    ╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝╚═════╝ 
-                                                                            
-     🤖 Version ${BOT_CONFIG.version} | Advanced WhatsApp Bot
-    `);
-
-    // Try to load/fetch session
-    const sessionLoaded = await sessionManager.loadSession();
-    
-    if (!sessionLoaded && !SESSION_CONFIG.SESSION_ID) {
-        console.log(`
-    ⚠️  No session found!
-    
-    📱 To get a session:
-    1. Visit: ${SESSION_CONFIG.SESSION_SERVER_URL}/generate
-    2. Scan the QR code with WhatsApp
-    3. Copy the Session ID
-    4. Set it as SESSION_ID environment variable
-    
-    Or run: node lib/getSession.js for local generation
-        `);
-        
-        // Auto-generate option
-        if (SESSION_CONFIG.AUTO_FETCH_SESSION) {
-            console.log('🔄 Auto-generating session...');
-            const newSession = await sessionManager.generateNewSession();
-            if (newSession.success) {
-                console.log(`
-    ✅ Session generation started!
-    🔗 Visit: ${newSession.qrUrl}
-    📋 Session ID: ${newSession.sessionId}
-    
-    ⏳ Waiting for QR scan... (checking every 5 seconds)
-                `);
-                
-                // Poll for connection
-                let attempts = 0;
-                const maxAttempts = 60; // 5 minutes
-                
-                const checkInterval = setInterval(async () => {
-                    attempts++;
-                    const status = await sessionManager.checkServerStatus(newSession.sessionId);
-                    
-                    if (status.status === 'connected') {
-                        clearInterval(checkInterval);
-                        console.log('✅ Session connected! Fetching credentials...');
-                        const sessionData = await sessionManager.fetchSession(newSession.sessionId);
-                        if (sessionData) {
-                            await sessionManager.saveSession(sessionData);
-                            console.log('🔄 Restarting bot with new session...');
-                            process.exit(0); // Restart to load new session
-                        }
-                    }
-                    
-                    if (attempts >= maxAttempts) {
-                        clearInterval(checkInterval);
-                        console.log('❌ Session generation timeout. Please try again.');
-                        process.exit(1);
-                    }
-                }, 5000);
-                
-                return;
-            }
-        }
-        
-        process.exit(1);
-    }
-
-    // Initialize auth state
-    const { state, saveCreds } = await useMultiFileAuthState('./auth_info_baileys');
-
-    // Create socket
-    const sock = makeWASocket({
-        printQRInTerminal: false,
-        auth: state,
-        logger: logger,
-        browser: ['MEGA MIND Bot', 'Chrome', '3.0.0'],
-        syncFullHistory: false,
-        markOnlineOnConnect: true
-    });
-
-    // Connection handler
-    sock.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect } = update;
-
-        if (connection === 'open') {
-            console.log('✅ Bot connected successfully!');
-            console.log(`👤 User: ${sock.user.name} (${sock.user.id})`);
-            
-            // Notify owner
-            if (BOT_CONFIG.owner) {
-                await sock.sendMessage(BOT_CONFIG.owner + '@s.whatsapp.net', {
-                    text: `🤖 *MEGA MIND Bot Connected!*\n\n✅ Status: Online\n📱 User: ${sock.user.name}\n⏰ Time: ${new Date().toLocaleString()}`
-                }).catch(() => {});
-            }
-        }
-
-        if (connection === 'close') {
-            const statusCode = lastDisconnect?.error?.output?.statusCode;
-            const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-            
-            console.log(`⚠️ Connection closed. Status: ${statusCode}`);
-            
-            if (shouldReconnect) {
-                console.log('🔄 Reconnecting...');
-                setTimeout(startBot, 5000);
-            } else {
-                console.log('❌ Logged out. Please generate new session.');
-                await fs.remove('./auth_info_baileys');
-                await fs.remove('./session.json');
-                process.exit(1);
-            }
-        }
-    });
-
-    // Save credentials
-    sock.ev.on('creds.update', saveCreds);
-
-    // Message handler
-    sock.ev.on('messages.upsert', async (m) => {
-        if (m.type !== 'notify') return;
-        
-        const msg = m.messages[0];
-        if (!msg.message || msg.key.fromMe) return;
-
-        try {
-            // Your message handling logic here
-            require('./handler')(sock, msg);
-        } catch (error) {
-            console.error('Handler error:', error);
-        }
-    });
-
-    // Group participants update
-    sock.ev.on('group-participants.update', async (update) => {
-        try {
-            require('./lib/groupHandler')(sock, update);
-        } catch (error) {
-            console.error('Group handler error:', error);
-        }
-    });
+// Restore session - FIXED
+async function restoreSession() {
+ if (!config.SESSION_ID) return false;
+ try {
+ await fs.ensureDir('./session');
+ 
+ // Parse session data from session generator
+ const sessionData = JSON.parse(Buffer.from(config.SESSION_ID, 'base64').toString());
+ 
+ // Write creds.json
+ await fs.writeFile('./session/creds.json', JSON.stringify(sessionData.creds, null, 2));
+ 
+ console.log(`${C.g}✅ Session restored from SESSION_ID${C.r}`);
+ return true;
+ } catch (err) {
+ console.error('Session restore error:', err);
+ return false;
+ }
 }
 
-// Start with error handling
-startBot().catch(err => {
-    console.error('Fatal error:', err);
-    process.exit(1);
-});
+// Start bot - FIXED
+async function startBot() {
+ console.log(logo);
+
+ await db.initDB();
+
+ const hasSession = await restoreSession();
+ const { state, saveCreds } = await useMultiFileAuthState('./session');
+ 
+ // FETCH LATEST BAILEYS VERSION
+ const { version, isLatest } = await fetchLatestBaileysVersion();
+ console.log(`${C.c}📦 Baileys v${version.join('.')} (Latest: ${isLatest})${C.r}`);
+
+ const sock = makeWASocket({
+ version,  // Use latest version
+ logger: pino({ level: 'silent' }),
+ printQRInTerminal: !hasSession,
+ auth: {
+ creds: state.creds,
+ keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'silent' }))
+ },
+ browser: Browsers.macOS('Chrome'),  // BETTER BROWSER FINGERPRINT
+ markOnlineOnConnect: true,
+ syncFullHistory: false,
+ keepAliveIntervalMs: 30000,
+ connectTimeoutMs: 60000,
+ defaultQueryTimeoutMs: 60000,
+ mobile: false,  // IMPORTANT: Disable mobile for QR compatibility
+ generateHighQualityLinkPreview: true
+ });
+
+ // Initialize systems
+ const mega = new MegaHandler(sock, null, config);
+ const antiBug = new AntiBug(sock);
+ const statusReactor = new StatusReactor(sock);
+ const autoBlock = new AutoBlock(sock);
+ const commandReactor = new CommandReactor(sock, config);
+
+ // Connection handler - FIXED
+ sock.ev.on('connection.update', async (update) => {
+ const { connection, lastDisconnect, qr } = update;
+
+ if (qr) {
+ console.log(`${C.y}📲 QR Code generated! Scan with WhatsApp${C.r}`);
+ console.log(`${C.y}   Settings → Linked Devices → Link a Device${C.r}`);
+ }
+
+ if (connection === 'open') {
+ console.log(`${C.g}✅ ${config.BOT_NAME} CONNECTED${C.r}`);
+ console.log(`${C.c}👤 User: ${sock.user.name} (${sock.user.id})${C.r}`);
+ console.log(`${C.m}🛡️ AntiBug: ${config.ANTIBUG ? 'ON' : 'OFF'}${C.r}`);
+ console.log(`${C.m}🔒 AutoBlock: ${config.AUTOBLOCK ? 'ON' : 'OFF'}${C.r}`);
+ console.log(`${C.m}💯 StatusReact: ${config.STATUS_REACT ? 'ON' : 'OFF'}${C.r}`);
+ console.log(`${C.m}⚡ CommandStatus: ${config.COMMAND_STATUS_REACT ? 'ON' : 'OFF'}${C.r}`);
+ console.log(`${C.m}🔧 Prefix: ${config.COMMAND_PREFIX}${C.r}\n`);
+ }
+
+ if (connection === 'close') {
+ const code = lastDisconnect?.error?.output?.statusCode;
+ const shouldReconnect = code !== DisconnectReason.loggedOut;
+ 
+ console.log(`${C.y}❌ Connection closed. Code: ${code}${C.r}`);
+
+ if (code === DisconnectReason.restartRequired) {
+ console.log(`${C.y}🔄 Restart required, reconnecting...${C.r}`);
+ setTimeout(startBot, 3000);
+ } else if (shouldReconnect) {
+ console.log(`${C.y}🔄 Reconnecting in 5s...${C.r}`);
+ setTimeout(startBot, 5000);
+ } else {
+ console.log(`${C.r}🔒 Logged out. Please generate new session.${C.r}`);
+ // Clean up session
+ await fs.remove('./session');
+ }
+ }
+ });
+
+ sock.ev.on('creds.update', saveCreds);
+ 
+ // ... rest of your code ...
+}
