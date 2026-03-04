@@ -416,9 +416,9 @@ app.get('/', (req, res) => {
             <div class="display-area" id="pairingArea">
                 <div class="pairing-container" id="pairingInput">
                     <h3 style="margin-bottom: 20px; color: #00ff88;">Enter Phone Number</h3>
-                    <input type="text" class="phone-input" id="phoneNumber" placeholder="+1234567890" maxlength="15">
+                    <input type="text" class="phone-input" id="phoneNumber" placeholder="+254112658916" maxlength="15">
                     <div class="instructions" style="margin-bottom: 20px;">
-                        Include country code (e.g., +1 for USA)
+                        Include country code (e.g., +254 for KENYA)
                     </div>
                     <button class="submit-btn" onclick="submitPhone()">Get Pairing Code</button>
                     <div class="status hidden" id="phoneStatus"></div>
