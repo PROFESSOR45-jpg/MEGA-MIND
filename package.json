@@ -1,40 +1,18 @@
-
 {
-  "name": "mega-mind-bot",
-  "version": "3.0.0",
-  "description": "MEGA MIND WhatsApp Bot - PROFESSOR Edition with Anti-Bug & Command Status Reactions",
-  "main": "index.js",
+  "name": "mega-mind-session",
+  "version": "1.0.0",
+  "description": "Session Generator",
+  "main": "server.js",
   "scripts": {
-    "start": "node index.js",
-    "session": "node lib/getSession.js"
+    "start": "node server.js"
   },
-  "keywords": [
-    "whatsapp-bot",
-    "mega-mind",
-    "baileys",
-    "antibug",
-    "professor"
-  ],
-  "author": "PROFESSOR",
-  "license": "MIT",
   "dependencies": {
-    "@whiskeysockets/baileys": "^6.7.18",
-    "axios": "^1.7.9",
-    "express": "^4.21.2",
-    "fs-extra": "^11.3.0",
-    "pino": "^9.6.0",
-    "qrcode-terminal": "^0.12.0",
-    "wa-sticker-formatter": "^4.4.4"
+    "@whiskeysockets/baileys": "^6.4.0",
+    "express": "^4.18.2",
+    "pino": "^8.14.0",
+    "qrcode": "^1.5.3"
   },
   "engines": {
-    "node": ">=18.0.0"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/yourusername/mega-mind-bot.git"
-  },
-  "bugs": {
-    "url": "https://github.com/yourusername/mega-mind-bot/issues"
-  },
-  "homepage": "https://github.com/yourusername/mega-mind-bot#readme"
+    "node": "18.x"
+  }
 }
