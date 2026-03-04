@@ -1,37 +1,71 @@
-# 🤖 MEGA MIND BOT v3.0.0
+<p align="center">
+  <img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&weight=700&size=30&duration=3000&pause=1000&color=00FF88&center=true&vCenter=true&width=600&lines=MEGA+MIND+BOT;©PROFESSOR+DARK+TECH©" alt="Typing SVG" />
+</p>
 
-**Advanced WhatsApp Bot with Anti-Bug Protection & Command Status Reactions**
-
-[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy)
-[![Railway](https://railway.app/button.svg)](https://railway.app/new/template)
+<p align="center">
+  <img src="https://img.shields.io/badge/Version-3.0.0-00FF88?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Node.js-18+-00FF88?style=for-the-badge&logo=node.js" />
+</p>
 
 ---
 
-## ⚡ Quick Start (3 Steps)
+## 🔐 Get Session ID
 
-### Step 1: Get Session ID 🔑
+<p align="center">
+  <a href="https://mega-mind-session.onrender.com/">
+    <img src="https://img.shields.io/badge/🔐_GET_SESSION_ID-00FF88?style=for-the-badge&logo=whatsapp&logoColor=black&color=0a0a0a" height="50" />
+  </a>
+</p>
 
-**[👉 CLICK HERE FOR SESSION GENERATOR](https://replit.com/@yourusername/mega-mind-session)**  
-*(Or use local method below)*
+---
 
-**Option A: Online Session Generator (Fastest)**
-- Visit: `https://replit.com/@yourusername/mega-mind-session`
-- Click "Run"
-- Scan QR code with WhatsApp
-- Copy the long session string
-- Done!
+## 🚀 Deploy Now
 
-**Option B: Local Session Generator**
-```bash
-# 1. Clone this repo
-git clone https://github.com/yourusername/mega-mind-bot.git
-cd mega-mind-bot
+<p align="center">
 
-# 2. Install dependencies
-npm install
+  <a href="https://render.com/deploy?repo=https://github.com/PROFESSOR45-jpg/MEGA-MIND">
+    <img src="https://img.shields.io/badge/Render-46E3B7?style=for-the-badge&logo=render&logoColor=black" height="40" />
+  </a>
 
-# 3. Run session generator
-node lib/getSession.js
+  <a href="https://railway.app/new/template?template=https://github.com/PROFESSOR45-jpg/MEGA-MIND">
+    <img src="https://img.shields.io/badge/Railway-0B0D0E?style=for-the-badge&logo=railway&logoColor=white" height="40" />
+  </a>
 
-# 4. Scan QR code with WhatsApp
-# 5. Copy the SESSION_ID output
+  <a href="https://app.koyeb.com/deploy?type=git&repository=github.com/PROFESSOR45-jpg/MEGA-MIND&branch=main&name=mega-mind-bot">
+    <img src="https://img.shields.io/badge/Koyeb-121212?style=for-the-badge&logo=koyeb&logoColor=white" height="40" />
+  </a>
+
+  <a href="https://heroku.com/deploy?template=https://github.com/PROFESSOR45-jpg/MEGA-MIND">
+    <img src="https://img.shields.io/badge/Heroku-430098?style=for-the-badge&logo=heroku&logoColor=white" height="40" />
+  </a>
+
+  <a href="https://replit.com/github/PROFESSOR45-jpg/MEGA-MIND">
+    <img src="https://img.shields.io/badge/Replit-F26207?style=for-the-badge&logo=replit&logoColor=white" height="40" />
+  </a>
+
+  <a href="https://codesandbox.io/s/github/PROFESSOR45-jpg/MEGA-MIND">
+    <img src="https://img.shields.io/badge/CodeSandbox-151515?style=for-the-badge&logo=codesandbox&logoColor=white" height="40" />
+  </a>
+
+  <a href="https://glitch.com/edit/#!/import/github/PROFESSOR45-jpg/MEGA-MIND">
+    <img src="https://img.shields.io/badge/Glitch-3333FF?style=for-the-badge&logo=glitch&logoColor=white" height="40" />
+  </a>
+
+</p>
+
+---
+
+## ⚙️ Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `SESSION_ID` | ✅ | From [Session Generator](https://mega-mind-session.onrender.com/) |
+| `OWNER_NUMBER` | ✅ | Your WhatsApp number (+1234567890) |
+| `BOT_NAME` | ❌ | Default: MEGA MIND |
+
+---
+
+## 📝 License
+
+MIT License © 2024 ©PROFESSOR DARK TECH©
+
