@@ -1,22 +1,14 @@
 {
-  "name": "mega-mind-bot",
-  "version": "3.1.0",
-  "description": "Advanced WhatsApp Bot with Multi-File Auth",
-  "main": "index.js",
-  "scripts": {
-    "start": "node index.js"
-  },
   "dependencies": {
-    "@professor45/mega-mind-sessions": "github:PROFESSOR45-jpg/mega-mind-sessions",
-    "@whiskeysockets/baileys": "^6.7.16",
-    "@hapi/boom": "^10.0.1",
+    "@whiskeysockets/baileys": "^6.6.0",
+    "axios": "^1.6.0",
     "express": "^4.18.2",
-    "pino": "^8.17.0",
-    "qrcode": "^1.5.3",
-    "socket.io": "^4.7.2",
-    "fs-extra": "^11.2.0"
-  },
-  "engines": {
-    "node": ">=18.0.0"
+    "fs-extra": "^11.1.1",
+    "pino": "^8.16.0",
+    "qrcode-terminal": "^0.12.0",
+    "dotenv": "^16.3.1",
+    "node-cache": "^5.1.2",
+    "path": "^0.12.7",
+    "util": "^0.12.5"
   }
 }
