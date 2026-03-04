@@ -74,12 +74,6 @@
             border-color: #667eea;
         }
 
-        .method-btn i {
-            font-size: 24px;
-            display: block;
-            margin-bottom: 5px;
-        }
-
         .input-group {
             margin-bottom: 20px;
             display: none;
@@ -206,6 +200,23 @@
             padding: 20px;
             border-radius: 10px;
             border: 2px dashed #667eea;
+            position: relative;
+        }
+
+        .notification-badge {
+            display: inline-block;
+            background: #4caf50;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            margin-top: 10px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
         }
 
         .session-data {
@@ -217,30 +228,72 @@
             display: block;
         }
 
+        .session-box {
+            position: relative;
+            background: #f8f9fa;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+
         textarea {
             width: 100%;
-            height: 150px;
+            height: 120px;
             padding: 10px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-family: monospace;
-            font-size: 12px;
-            resize: vertical;
+            border: none;
+            background: transparent;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            resize: none;
+            outline: none;
         }
 
         .copy-btn {
-            margin-top: 10px;
-            padding: 10px 20px;
-            background: #4caf50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            margin-top: 15px;
+            padding: 12px;
+            background: #667eea;
             color: white;
             border: none;
-            border-radius: 5px;
+            border-radius: 8px;
             cursor: pointer;
             font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s;
+            position: relative;
         }
 
         .copy-btn:hover {
-            background: #45a049;
+            background: #5a6fd6;
+            transform: translateY(-1px);
+        }
+
+        .copy-btn:active {
+            transform: translateY(0);
+        }
+
+        .copy-btn.copied {
+            background: #4caf50;
+        }
+
+        .copy-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .keyboard-shortcut {
+            position: absolute;
+            right: 12px;
+            font-size: 11px;
+            opacity: 0.7;
+            background: rgba(255,255,255,0.2);
+            padding: 2px 6px;
+            border-radius: 4px;
         }
 
         .instructions {
@@ -286,6 +339,60 @@
             border: none;
             border-radius: 5px;
             cursor: pointer;
+            width: 100%;
+        }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #333;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            display: none;
+            align-items: center;
+            gap: 10px;
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+        }
+
+        .toast.show {
+            display: flex;
+        }
+
+        .toast.success {
+            background: #4caf50;
+        }
+
+        .toast.error {
+            background: #f44336;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .toast-icon {
+            font-size: 20px;
+        }
+
+        .hint-box {
+            background: #e8f5e9;
+            border-left: 4px solid #4caf50;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #2e7d32;
         }
     </style>
 </head>
@@ -312,8 +419,8 @@
 
         <div id="codeSection" class="input-group">
             <label for="phoneNumber">Phone Number</label>
-            <input type="text" id="phoneNumber" placeholder="e.g., 1234567890 (with country code, no +)">
-            <p class="hint">Enter your phone number with country code (e.g., 14155552671 for US)</p>
+            <input type="text" id="phoneNumber" placeholder="e.g., 254112658916 (with country code, no +)">
+            <p class="hint">Enter your phone number with country code (e.g., 254112658916 for KENYA)</p>
         </div>
 
         <button class="start-btn" onclick="startSession()">
@@ -338,8 +445,14 @@
         </div>
 
         <div id="pairingContainer" class="pairing-code">
-            <h3>Your Pairing Code</h3>
+            <h3>🔐 Your Pairing Code</h3>
             <div class="code-display" id="pairingCode">------</div>
+            <div id="notificationBadge" class="notification-badge" style="display: none;">
+                📱 Notification sent to your WhatsApp
+            </div>
+            <div class="hint-box">
+                <strong>💡 Tip:</strong> Check your WhatsApp messages! We sent you a notification with this code.
+            </div>
             <div class="instructions">
                 <strong>How to use:</strong>
                 <ol>
@@ -355,15 +468,33 @@
         <div id="sessionData" class="session-data">
             <h3>✅ Session Connected!</h3>
             <p style="margin-bottom: 10px; color: #666;">Copy this session data and save it securely:</p>
-            <textarea id="sessionText" readonly></textarea>
-            <button class="copy-btn" onclick="copySession()">📋 Copy Session Data</button>
-            <button class="logout-btn" onclick="logout()">🚪 Logout</button>
+            
+            <div class="session-box">
+                <textarea id="sessionText" readonly></textarea>
+            </div>
+            
+            <button class="copy-btn" onclick="copySession()" id="copyBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+                <span id="copyBtnText">Copy Session Data</span>
+                <span class="keyboard-shortcut">Ctrl+C</span>
+            </button>
+            
+            <button class="logout-btn" onclick="logout()">🚪 Logout & Clear Session</button>
         </div>
+    </div>
+
+    <div id="toast" class="toast">
+        <span class="toast-icon" id="toastIcon">✓</span>
+        <span id="toastMessage">Copied to clipboard!</span>
     </div>
 
     <script>
         const socket = io();
         let currentMethod = 'qr';
+        let currentSessionData = '';
 
         function selectMethod(method) {
             currentMethod = method;
@@ -378,7 +509,6 @@
                 document.getElementById('codeSection').classList.add('active');
             }
 
-            // Reset display
             hideAll();
         }
 
@@ -387,12 +517,32 @@
             document.getElementById('pairingContainer').classList.remove('show');
             document.getElementById('sessionData').classList.remove('show');
             document.getElementById('status').classList.remove('show');
+            document.getElementById('notificationBadge').style.display = 'none';
         }
 
         function showStatus(message, type = 'info') {
             const status = document.getElementById('status');
             status.textContent = message;
             status.className = `status show ${type}`;
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+            const toastIcon = document.getElementById('toastIcon');
+            
+            toastMessage.textContent = message;
+            toast.className = `toast show ${type}`;
+            
+            if (type === 'success') {
+                toastIcon.textContent = '✓';
+            } else if (type === 'error') {
+                toastIcon.textContent = '✕';
+            }
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
         }
 
         function startSession() {
@@ -425,6 +575,13 @@
         socket.on('pairingCode', (data) => {
             document.getElementById('pairingCode').textContent = data.code;
             document.getElementById('pairingContainer').classList.add('show');
+            
+            // Show notification badge if notification was sent
+            if (data.notificationSent) {
+                document.getElementById('notificationBadge').style.display = 'inline-block';
+                showToast('📱 Check your WhatsApp! We sent you the pairing code.', 'success');
+            }
+            
             showStatus(data.message, 'info');
             resetButton();
         });
@@ -435,11 +592,15 @@
 
         socket.on('connected', (data) => {
             showStatus(data.message, 'success');
+            currentSessionData = data.sessionData;
             document.getElementById('sessionText').value = data.sessionData;
             document.getElementById('sessionData').classList.add('show');
             document.getElementById('qrContainer').classList.remove('show');
             document.getElementById('pairingContainer').classList.remove('show');
             resetButton();
+            
+            // Auto-select text for easy copying
+            document.getElementById('sessionText').select();
         });
 
         socket.on('disconnected', (data) => {
@@ -450,6 +611,7 @@
 
         socket.on('error', (data) => {
             showStatus(data.message, 'error');
+            showToast(data.message, 'error');
             resetButton();
         });
 
@@ -459,17 +621,61 @@
             btn.textContent = 'Start Session';
         }
 
-        function copySession() {
+        // Copy function with keyboard shortcut support
+        async function copySession() {
             const textarea = document.getElementById('sessionText');
-            textarea.select();
-            document.execCommand('copy');
-            alert('Session data copied to clipboard!');
+            const copyBtn = document.getElementById('copyBtn');
+            const copyBtnText = document.getElementById('copyBtnText');
+            
+            try {
+                // Modern Clipboard API
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(currentSessionData);
+                } else {
+                    // Fallback for older browsers
+                    textarea.select();
+                    textarea.setSelectionRange(0, 99999); // For mobile
+                    document.execCommand('copy');
+                }
+                
+                // Visual feedback
+                copyBtn.classList.add('copied');
+                copyBtnText.textContent = '✓ Copied!';
+                showToast('Session data copied to clipboard!', 'success');
+                
+                setTimeout(() => {
+                    copyBtn.classList.remove('copied');
+                    copyBtnText.textContent = 'Copy Session Data';
+                }, 2000);
+                
+            } catch (err) {
+                console.error('Copy failed:', err);
+                showToast('Failed to copy. Please select and copy manually (Ctrl+C).', 'error');
+                textarea.select();
+            }
         }
+
+        // Keyboard shortcut: Ctrl+C to copy when session is shown
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+                const sessionData = document.getElementById('sessionData');
+                if (sessionData.classList.contains('show') && window.getSelection().toString() === '') {
+                    e.preventDefault();
+                    copySession();
+                }
+            }
+        });
+
+        // Also allow clicking on the textarea to auto-select
+        document.getElementById('sessionText').addEventListener('click', function() {
+            this.select();
+        });
 
         function logout() {
             socket.emit('logout');
             hideAll();
             showStatus('Logged out successfully', 'info');
+            showToast('Session cleared successfully', 'success');
         }
 
         // Cleanup on page unload
