@@ -1,139 +1,230 @@
+const express = require('express');
+const { Server } = require('socket.io');
+const http = require('http');
+const QRCode = require('qrcode');
+const fs = require('fs');
+const path = require('path');
+
+// Baileys imports
 const { 
     default: makeWASocket, 
     useMultiFileAuthState, 
     DisconnectReason, 
-    fetchLatestBaileysVersion 
+    fetchLatestBaileysVersion,
+    Browsers
 } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 const P = require('pino');
-const express = require('express');
-const fs = require('fs');
-const path = require('path');
 
-// Express server for keeping alive (required for hosting platforms)
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: { origin: "*" }
+});
+
 const PORT = process.env.PORT || 3000;
+const SESSION_DIR = './auth_info_baileys';
 
-app.get('/', (req, res) => {
-    res.send('🤖 MEGA MIND BOT is Running!');
-});
+// Store active sockets and sessions
+const sessions = new Map();
 
-app.get('/status', (req, res) => {
-    res.json({ status: sock ? 'connected' : 'disconnected', timestamp: new Date() });
-});
+app.use(express.json());
+app.use(express.static('public'));
 
-app.listen(PORT, () => {
-    console.log(`🌐 Server running on port ${PORT}`);
-});
-
-let sock = null;
-
-async function startBot() {
-    try {
-        // Initialize auth state
-        const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
-        
-        // Fetch latest Baileys version
-        const { version, isLatest } = await fetchLatestBaileysVersion();
-        console.log(`Using WA v${version.join('.')}, isLatest: ${isLatest}`);
-
-        // Create socket connection
-        sock = makeWASocket({
-            version,
-            auth: state,
-            printQRInTerminal: true,
-            logger: P({ level: 'silent' }), // Change to 'debug' for verbose logs
-            browser: ['MEGA MIND BOT', 'Chrome', '1.0.0'],
-            syncFullHistory: false,
-            markOnlineOnConnect: true
-        });
-
-        // Save credentials when updated
-        sock.ev.on('creds.update', saveCreds);
-
-        // Handle connection updates
-        sock.ev.on('connection.update', async (update) => {
-            const { connection, lastDisconnect, qr } = update;
-
-            if (qr) {
-                console.log('📱 QR Code received, scan with WhatsApp');
-            }
-
-            if (connection === 'close') {
-                const shouldReconnect = (lastDisconnect?.error instanceof Boom) 
-                    ? lastDisconnect.error.output.statusCode !== DisconnectReason.loggedOut
-                    : true;
-
-                console.log('Connection closed due to:', lastDisconnect?.error?.message || 'Unknown error');
-                
-                if (shouldReconnect) {
-                    console.log('🔄 Reconnecting...');
-                    setTimeout(startBot, 5000); // Wait 5 seconds before reconnecting
-                } else {
-                    console.log('❌ Connection closed. You are logged out.');
-                    // Clear auth state if logged out
-                    if (fs.existsSync('auth_info_baileys')) {
-                        fs.rmSync('auth_info_baileys', { recursive: true, force: true });
-                        console.log('🗑️ Auth state cleared. Restart to scan QR again.');
-                    }
-                }
-            } else if (connection === 'open') {
-                console.log('✅ Connected to WhatsApp successfully!');
-                console.log(`🤖 Bot User: ${sock.user.id}`);
-            } else if (connection === 'connecting') {
-                console.log('🔄 Connecting to WhatsApp...');
-            }
-        });
-
-        // Handle incoming messages
-        sock.ev.on('messages.upsert', async (m) => {
-            const msg = m.messages[0];
-            if (!msg.key.fromMe && m.type === 'notify') {
-                console.log('📩 New message:', msg);
-                
-                const sender = msg.key.remoteJid;
-                const messageText = msg.message?.conversation || 
-                                   msg.message?.extendedTextMessage?.text || 
-                                   msg.message?.imageMessage?.caption || '';
-
-                // Auto-read messages
-                await sock.readMessages([msg.key]);
-
-                // Basic command handler
-                if (messageText.toLowerCase() === '!ping') {
-                    await sock.sendMessage(sender, { text: '🏓 Pong!' });
-                }
-                
-                if (messageText.toLowerCase() === '!help') {
-                    await sock.sendMessage(sender, { 
-                        text: `*🤖 MEGA MIND BOT Commands:*\n\n` +
-                              `• !ping - Check bot status\n` +
-                              `• !help - Show this menu\n` +
-                              `• !info - Bot information` 
-                    });
-                }
-            }
-        });
-
-        // Handle group participants update
-        sock.ev.on('group-participants.update', async (update) => {
-            console.log('👥 Group update:', update);
-        });
-
-    } catch (error) {
-        console.error('❌ Error starting bot:', error);
-        setTimeout(startBot, 10000); // Retry after 10 seconds on error
+// Cleanup function
+async function cleanupSession(sessionId) {
+    if (sessions.has(sessionId)) {
+        const session = sessions.get(sessionId);
+        if (session.sock) {
+            try {
+                await session.sock.logout();
+            } catch (e) {}
+        }
+        sessions.delete(sessionId);
+    }
+    // Clear auth folder
+    const sessionPath = `${SESSION_DIR}_${sessionId}`;
+    if (fs.existsSync(sessionPath)) {
+        fs.rmSync(sessionPath, { recursive: true, force: true });
     }
 }
 
+// Initialize WhatsApp Socket
+async function initWhatsApp(sessionId, phoneNumber = null, socketIoClient) {
+    const sessionPath = `${SESSION_DIR}_${sessionId}`;
+    
+    // Cleanup existing session
+    await cleanupSession(sessionId);
+
+    const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
+    const { version } = await fetchLatestBaileysVersion();
+
+    const sock = makeWASocket({
+        version,
+        auth: state,
+        printQRInTerminal: false,
+        logger: P({ level: 'silent' }),
+        browser: Browsers.ubuntu('MEGA MIND Session'),
+        syncFullHistory: false
+    });
+
+    sessions.set(sessionId, { sock, socket: socketIoClient, phoneNumber });
+
+    // Handle credentials update
+    sock.ev.on('creds.update', saveCreds);
+
+    // Handle connection updates
+    sock.ev.on('connection.update', async (update) => {
+        const { connection, lastDisconnect, qr } = update;
+        const session = sessions.get(sessionId);
+
+        if (!session) return;
+
+        // QR Code generated
+        if (qr) {
+            console.log(`[${sessionId}] QR Code generated`);
+            try {
+                const qrDataUrl = await QRCode.toDataURL(qr);
+                session.socket.emit('qr', { 
+                    qr: qrDataUrl, 
+                    message: 'Scan this QR code with WhatsApp' 
+                });
+            } catch (err) {
+                session.socket.emit('error', { message: 'Failed to generate QR code' });
+            }
+        }
+
+        // Connection status
+        if (connection === 'connecting') {
+            session.socket.emit('status', { 
+                status: 'connecting', 
+                message: 'Connecting to WhatsApp...' 
+            });
+        }
+
+        // Connected successfully
+        if (connection === 'open') {
+            console.log(`[${sessionId}] Connected successfully`);
+            
+            // Get session data
+            const credsPath = path.join(sessionPath, 'creds.json');
+            let sessionData = null;
+            if (fs.existsSync(credsPath)) {
+                sessionData = fs.readFileSync(credsPath, 'utf-8');
+            }
+
+            session.socket.emit('connected', {
+                status: 'connected',
+                message: 'Successfully connected!',
+                user: sock.user,
+                sessionData: sessionData // Send session credentials
+            });
+        }
+
+        // Connection closed
+        if (connection === 'close') {
+            const shouldReconnect = (lastDisconnect?.error instanceof Boom) 
+                ? lastDisconnect.error.output.statusCode !== DisconnectReason.loggedOut
+                : true;
+
+            if (shouldReconnect) {
+                session.socket.emit('status', { 
+                    status: 'reconnecting', 
+                    message: 'Connection lost. Reconnecting...' 
+                });
+                setTimeout(() => initWhatsApp(sessionId, phoneNumber, socketIoClient), 3000);
+            } else {
+                session.socket.emit('disconnected', { 
+                    status: 'disconnected', 
+                    message: 'Logged out. Please restart session.' 
+                });
+                await cleanupSession(sessionId);
+            }
+        }
+    });
+
+    // Request pairing code if phone number provided
+    if (phoneNumber && !sock.authState.creds.registered) {
+        try {
+            // Wait a bit for connection to establish
+            setTimeout(async () => {
+                try {
+                    const code = await sock.requestPairingCode(phoneNumber);
+                    console.log(`[${sessionId}] Pairing code generated: ${code}`);
+                    session.socket.emit('pairingCode', { 
+                        code: code,
+                        phoneNumber: phoneNumber,
+                        message: `Enter this code in WhatsApp: ${code}`
+                    });
+                } catch (err) {
+                    console.error('Pairing code error:', err);
+                    session.socket.emit('error', { 
+                        message: 'Failed to generate pairing code. Try QR code method.' 
+                    });
+                }
+            }, 2000);
+        } catch (err) {
+            console.error('Error requesting pairing code:', err);
+        }
+    }
+
+    return sock;
+}
+
+// Socket.IO connection handling
+io.on('connection', (socket) => {
+    console.log('Client connected:', socket.id);
+
+    socket.on('startSession', async (data) => {
+        const { phoneNumber, method } = data; // method: 'qr' or 'code'
+        const sessionId = socket.id;
+        
+        console.log(`Starting session ${sessionId} with method: ${method}, phone: ${phoneNumber}`);
+        
+        try {
+            // Format phone number if provided (remove +, spaces, -)
+            const formattedPhone = phoneNumber ? phoneNumber.replace(/[\+\s\-\(\)]/g, '') : null;
+            
+            await initWhatsApp(sessionId, formattedPhone, socket);
+            
+            socket.emit('status', { 
+                status: 'initializing', 
+                message: method === 'code' && formattedPhone 
+                    ? 'Generating pairing code...' 
+                    : 'Waiting for QR code...' 
+            });
+        } catch (error) {
+            console.error('Session error:', error);
+            socket.emit('error', { message: 'Failed to start session: ' + error.message });
+        }
+    });
+
+    socket.on('disconnect', async () => {
+        console.log('Client disconnected:', socket.id);
+        await cleanupSession(socket.id);
+    });
+
+    socket.on('logout', async () => {
+        await cleanupSession(socket.id);
+        socket.emit('disconnected', { message: 'Logged out successfully' });
+    });
+});
+
+// API Routes
+app.get('/health', (req, res) => {
+    res.json({ status: 'ok', activeSessions: sessions.size });
+});
+
+server.listen(PORT, () => {
+    console.log(`🚀 Session Generator running on port ${PORT}`);
+    console.log(`📱 Open the web interface to generate WhatsApp sessions`);
+});
+
 // Graceful shutdown
-process.on('SIGINT', async () => {
-    console.log('\n🛑 Shutting down gracefully...');
-    if (sock) {
-        await sock.logout();
+process.on('SIGTERM', async () => {
+    console.log('SIGTERM received, cleaning up...');
+    for (const [sessionId] of sessions) {
+        await cleanupSession(sessionId);
     }
     process.exit(0);
 });
-
-// Start the bot
-startBot();
