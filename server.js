@@ -1,4 +1,3 @@
-
 const express = require('express');
 const app = express();
 app.use(express.json());
@@ -29,7 +28,7 @@ app.get('/', (req, res) => {
                 padding: 20px;
             }
             .container { max-width: 500px; margin: 0 auto; padding-top: 30px; }
-            h1 { font-size: 2.5rem; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+            h1 { font-size: 2.5rem; margin-bottom: 10px; }
             .subtitle { opacity: 0.9; margin-bottom: 30px; }
             .btn { 
                 background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
@@ -41,9 +40,7 @@ app.get('/', (req, res) => {
                 font-size: 18px;
                 font-weight: bold;
                 box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-                transition: transform 0.3s;
             }
-            .btn:hover { transform: translateY(-3px); }
             .btn:disabled { opacity: 0.6; cursor: not-allowed; }
             #status { 
                 margin: 25px 0; 
@@ -62,16 +59,14 @@ app.get('/', (req, res) => {
                 border-radius: 20px; 
                 display: none;
                 max-width: 320px;
-                box-shadow: 0 20px 60px rgba(0,0,0,0.3);
             }
-            #qr img { max-width: 100%; height: auto; }
+            #qr img { max-width: 100%; }
             #session { 
                 background: rgba(0,0,0,0.4); 
                 padding: 25px; 
                 border-radius: 20px; 
                 margin-top: 25px;
                 display: none;
-                border: 2px solid #28a745;
             }
             .session-text {
                 background: rgba(0,0,0,0.5);
@@ -84,7 +79,6 @@ app.get('/', (req, res) => {
                 max-height: 200px;
                 overflow-y: auto;
                 text-align: left;
-                line-height: 1.6;
             }
             .copy-btn {
                 background: #28a745;
@@ -94,16 +88,6 @@ app.get('/', (req, res) => {
                 color: white;
                 cursor: pointer;
                 font-size: 16px;
-                margin-top: 10px;
-            }
-            .copy-btn:hover { background: #218838; }
-            .warning {
-                background: rgba(255,193,7,0.2);
-                border: 1px solid #ffc107;
-                padding: 15px;
-                border-radius: 10px;
-                margin-top: 20px;
-                font-size: 14px;
             }
             .loader {
                 display: none;
@@ -129,113 +113,64 @@ app.get('/', (req, res) => {
             
             <div class="loader" id="loader"></div>
             <div id="status"></div>
-            
             <div id="qr"></div>
             
             <div id="session">
                 <h3>✅ Session Generated!</h3>
-                <p style="margin: 10px 0;">Copy this code to your .env file:</p>
                 <div class="session-text" id="sessionText"></div>
-                <button class="copy-btn" onclick="copySession()">📋 Copy to Clipboard</button>
-                <div class="warning">
-                    ⚠️ <strong>Security Warning:</strong><br>
-                    Never share this session ID! It provides full access to your WhatsApp account.
-                </div>
+                <button class="copy-btn" onclick="copySession()">📋 Copy</button>
             </div>
         </div>
 
         <script>
             async function startSession() {
-                const btn = document.getElementById('startBtn');
-                const loader = document.getElementById('loader');
+                document.getElementById('startBtn').style.display = 'none';
+                document.getElementById('loader').style.display = 'block';
                 const status = document.getElementById('status');
-                
-                btn.disabled = true;
-                btn.style.display = 'none';
-                loader.style.display = 'block';
                 status.style.display = 'block';
                 status.className = 'waiting';
-                status.innerHTML = '⏳ Connecting to WhatsApp...';
+                status.innerHTML = '⏳ Connecting...';
                 
                 try {
                     const res = await fetch('/start', { method: 'POST' });
                     const data = await res.json();
                     
-                    if (data.error) {
-                        throw new Error(data.error);
-                    }
-                    
-                    // Start checking for QR
+                    if (data.error) throw new Error(data.error);
                     checkStatus();
                     
                 } catch (err) {
-                    loader.style.display = 'none';
+                    document.getElementById('loader').style.display = 'none';
                     status.className = 'error';
-                    status.innerHTML = '❌ Error: ' + err.message;
-                    btn.style.display = 'inline-block';
-                    btn.disabled = false;
+                    status.innerHTML = '❌ ' + err.message;
                 }
             }
             
             function checkStatus() {
                 const interval = setInterval(async () => {
-                    try {
-                        const res = await fetch('/status');
-                        const data = await res.json();
-                        
-                        const status = document.getElementById('status');
-                        const loader = document.getElementById('loader');
-                        const qrDiv = document.getElementById('qr');
-                        
-                        if (data.qr && qrDiv.style.display === 'none') {
-                            loader.style.display = 'none';
-                            qrDiv.innerHTML = '<img src="' + data.qr + '" alt="QR Code">';
-                            qrDiv.style.display = 'block';
-                            status.className = 'waiting';
-                            status.innerHTML = '📱 Scan this QR with WhatsApp!<br><small>Settings → Linked Devices → Link Device</small>';
-                        }
-                        
-                        if (data.session) {
-                            clearInterval(interval);
-                            qrDiv.style.display = 'none';
-                            status.className = 'success';
-                            status.innerHTML = '✅ Connected Successfully!';
-                            document.getElementById('sessionText').textContent = data.session;
-                            document.getElementById('session').style.display = 'block';
-                        }
-                        
-                        if (data.status === 'error') {
-                            clearInterval(interval);
-                            loader.style.display = 'none';
-                            status.className = 'error';
-                            status.innerHTML = '❌ Connection failed. Try again.';
-                            document.getElementById('startBtn').style.display = 'inline-block';
-                            document.getElementById('startBtn').disabled = false;
-                        }
-                        
-                    } catch (e) {
-                        console.error('Check error:', e);
+                    const res = await fetch('/status');
+                    const data = await res.json();
+                    
+                    if (data.qr) {
+                        document.getElementById('loader').style.display = 'none';
+                        document.getElementById('qr').innerHTML = '<img src="' + data.qr + '">';
+                        document.getElementById('qr').style.display = 'block';
+                    }
+                    
+                    if (data.session) {
+                        clearInterval(interval);
+                        document.getElementById('qr').style.display = 'none';
+                        document.getElementById('status').className = 'success';
+                        document.getElementById('status').innerHTML = '✅ Connected!';
+                        document.getElementById('sessionText').textContent = data.session;
+                        document.getElementById('session').style.display = 'block';
                     }
                 }, 2000);
             }
             
             async function copySession() {
                 const text = document.getElementById('sessionText').textContent;
-                try {
-                    await navigator.clipboard.writeText(text);
-                    const btn = document.querySelector('.copy-btn');
-                    btn.textContent = '✅ Copied!';
-                    setTimeout(() => btn.textContent = '📋 Copy to Clipboard', 2000);
-                } catch (err) {
-                    // Fallback
-                    const textarea = document.createElement('textarea');
-                    textarea.value = text;
-                    document.body.appendChild(textarea);
-                    textarea.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(textarea);
-                    alert('Session copied!');
-                }
+                await navigator.clipboard.writeText(text);
+                alert('Copied!');
             }
         </script>
     </body>
@@ -243,21 +178,22 @@ app.get('/', (req, res) => {
     `);
 });
 
-// Start WhatsApp connection
+// FIXED: Use require instead of dynamic import
 app.post('/start', async (req, res) => {
     if (sock) {
-        return res.json({ error: 'Session already active. Refresh page to reset.' });
+        return res.json({ error: 'Session already active' });
     }
 
     try {
-        // Import Baileys dynamically
-        const { default: makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion } = await import('@whiskeysockets/baileys');
-        const QRCode = await import('qrcode');
-        const pino = (await import('pino')).default;
-        const fs = await import('fs');
+        // Use require for CommonJS compatibility
+        const { makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
+        const QRCode = require('qrcode');
+        const pino = require('pino');
+        const fs = require('fs');
+        const path = require('path');
         
-        // Use /tmp for Render (writable)
-        const authPath = process.env.RENDER ? '/tmp/session' : './session';
+        // Use /tmp for Render
+        const authPath = '/tmp/session';
         
         const { state, saveCreds } = await useMultiFileAuthState(authPath);
         const { version } = await fetchLatestBaileysVersion();
@@ -267,88 +203,47 @@ app.post('/start', async (req, res) => {
             logger: pino({ level: 'silent' }),
             printQRInTerminal: false,
             auth: state,
-            browser: ['MEGA MIND Bot', 'Chrome', '1.0'],
-            generateHighQualityLinkPreview: true
+            browser: ['MEGA MIND Bot', 'Chrome', '1.0']
         });
         
         sock.ev.on('connection.update', async (update) => {
-            const { connection, lastDisconnect, qr } = update;
+            const { connection, qr } = update;
             
-            // QR Code ready
             if (qr) {
                 console.log('QR generated');
-                qrData = await QRCode.default.toDataURL(qr);
+                qrData = await QRCode.toDataURL(qr);
                 status = 'qr_ready';
             }
             
-            // Connected
             if (connection === 'open') {
                 console.log('Connected!');
                 status = 'connected';
                 
-                // Read session credentials
                 try {
-                    const credsPath = authPath + '/creds.json';
+                    const credsPath = path.join(authPath, 'creds.json');
                     if (fs.existsSync(credsPath)) {
                         const creds = fs.readFileSync(credsPath);
                         sessionData = Buffer.from(creds).toString('base64');
-                        console.log('Session saved');
                     }
                 } catch (e) {
-                    console.error('Error reading creds:', e);
-                }
-            }
-            
-            // Disconnected
-            if (connection === 'close') {
-                const statusCode = lastDisconnect?.error?.output?.statusCode;
-                const shouldReconnect = statusCode !== 401; // 401 = logged out
-                
-                if (!shouldReconnect) {
-                    status = 'error';
-                    sock = null;
+                    console.error('Error:', e);
                 }
             }
         });
         
         sock.ev.on('creds.update', saveCreds);
         
-        res.json({ success: true, message: 'Session started' });
+        res.json({ success: true });
         
     } catch (error) {
-        console.error('Start error:', error);
+        console.error('Error:', error);
         status = 'error';
         res.json({ error: error.message });
     }
 });
 
-// Check status
 app.get('/status', (req, res) => {
-    res.json({
-        status: status,
-        qr: qrData,
-        session: sessionData
-    });
+    res.json({ status, qr: qrData, session: sessionData });
 });
 
-// Reset
-app.post('/reset', async (req, res) => {
-    const fs = await import('fs');
-    const authPath = process.env.RENDER ? '/tmp/session' : './session';
-    
-    if (fs.existsSync(authPath)) {
-        fs.rmSync(authPath, { recursive: true, force: true });
-    }
-    
-    sock = null;
-    qrData = null;
-    sessionData = null;
-    status = 'idle';
-    
-    res.json({ reset: true });
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => {
-    console.log('🚀 MEGA MIND Session Generator running on port', PORT);
-});
+const PORT = process.env.PORT
