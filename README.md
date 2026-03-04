@@ -3,8 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-3.0.0-00FF88?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/Node.js-18+-00FF88?style=for-the-badge&logo=node.js" />
+  <b>Advanced WhatsApp Bot with Anti-Bug Protection & Command Status Reactions</b>
 </p>
 
 ---
@@ -43,14 +42,6 @@
     <img src="https://img.shields.io/badge/Replit-F26207?style=for-the-badge&logo=replit&logoColor=white" height="40" />
   </a>
 
-  <a href="https://codesandbox.io/s/github/PROFESSOR45-jpg/MEGA-MIND">
-    <img src="https://img.shields.io/badge/CodeSandbox-151515?style=for-the-badge&logo=codesandbox&logoColor=white" height="40" />
-  </a>
-
-  <a href="https://glitch.com/edit/#!/import/github/PROFESSOR45-jpg/MEGA-MIND">
-    <img src="https://img.shields.io/badge/Glitch-3333FF?style=for-the-badge&logo=glitch&logoColor=white" height="40" />
-  </a>
-
 </p>
 
 ---
@@ -60,12 +51,11 @@
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `SESSION_ID` | ✅ | From [Session Generator](https://mega-mind-session.onrender.com/) |
-| `OWNER_NUMBER` | ✅ | Your WhatsApp number (+254112658916) |
+| `OWNER_NUMBER` | ✅ | Your WhatsApp number (+1234567890) |
 | `BOT_NAME` | ❌ | Default: MEGA MIND |
 
 ---
 
-## 📝 License
-
-MIT License © 2024 ©PROFESSOR DARK TECH©
-
+<p align="center">
+  <sub>©PROFESSOR DARK TECH©</sub>
+</p>
