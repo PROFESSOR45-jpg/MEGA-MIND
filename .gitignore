@@ -1,1 +1,44 @@
+# Session
+session/
+*.data.json
+creds.json
+
+# Environment
+.env
+.env.local
+mega.env
+
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Database
+database.json
+*.db
+
+# Runtime
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Testing
+coverage/
+
+# Misc
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Session ID files
+SESSION_ID.txt
 
