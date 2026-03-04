@@ -1,7 +1,6 @@
 const express = require('express');
 const { Server } = require('socket.io');
 const http = require('http');
-const QRCode = require('qrcode');
 const fs = require('fs');
 const path = require('path');
 
@@ -52,6 +51,7 @@ async function cleanupSession(sessionId) {
 // Initialize WhatsApp Socket
 async function initWhatsApp(sessionId, phoneNumber = null, socketIoClient) {
     const sessionPath = `${SESSION_DIR}_${sessionId}`;
+    const usePairingCode = !!phoneNumber; // Determine if we should use pairing code
     
     // Cleanup existing session
     await cleanupSession(sessionId);
@@ -62,13 +62,21 @@ async function initWhatsApp(sessionId, phoneNumber = null, socketIoClient) {
     const sock = makeWASocket({
         version,
         auth: state,
-        printQRInTerminal: false,
+        printQRInTerminal: false, // Always false, we handle QR manually if needed
         logger: P({ level: 'silent' }),
         browser: Browsers.ubuntu('MEGA MIND Session'),
-        syncFullHistory: false
+        syncFullHistory: false,
+        // For pairing code, we need to mark this as a pairing attempt
+        markOnlineOnConnect: false
     });
 
-    sessions.set(sessionId, { sock, socket: socketIoClient, phoneNumber });
+    sessions.set(sessionId, { 
+        sock, 
+        socket: socketIoClient, 
+        phoneNumber,
+        usePairingCode,
+        pairingCodeRequested: false 
+    });
 
     // Handle credentials update
     sock.ev.on('creds.update', saveCreds);
@@ -80,10 +88,11 @@ async function initWhatsApp(sessionId, phoneNumber = null, socketIoClient) {
 
         if (!session) return;
 
-        // QR Code generated
-        if (qr) {
-            console.log(`[${sessionId}] QR Code generated`);
+        // Handle QR code - ONLY if NOT using pairing code method
+        if (qr && !session.usePairingCode) {
+            console.log(`[${sessionId}] QR Code generated (QR method)`);
             try {
+                const QRCode = require('qrcode');
                 const qrDataUrl = await QRCode.toDataURL(qr);
                 session.socket.emit('qr', { 
                     qr: qrDataUrl, 
@@ -93,12 +102,40 @@ async function initWhatsApp(sessionId, phoneNumber = null, socketIoClient) {
                 session.socket.emit('error', { message: 'Failed to generate QR code' });
             }
         }
+        
+        // If we see a QR but we're using pairing code, ignore it and request pairing code
+        if (qr && session.usePairingCode && !session.pairingCodeRequested) {
+            console.log(`[${sessionId}] Ignoring QR, requesting pairing code for ${session.phoneNumber}`);
+            session.pairingCodeRequested = true;
+            
+            // Small delay to ensure connection is ready
+            setTimeout(async () => {
+                try {
+                    if (!sock.authState.creds.registered) {
+                        const code = await sock.requestPairingCode(session.phoneNumber);
+                        console.log(`[${sessionId}] Pairing code generated: ${code}`);
+                        session.socket.emit('pairingCode', { 
+                            code: code,
+                            phoneNumber: session.phoneNumber,
+                            message: `Enter this code in WhatsApp: ${code}`
+                        });
+                    }
+                } catch (err) {
+                    console.error('Pairing code error:', err);
+                    session.socket.emit('error', { 
+                        message: 'Failed to generate pairing code: ' + err.message 
+                    });
+                }
+            }, 1000);
+        }
 
         // Connection status
         if (connection === 'connecting') {
             session.socket.emit('status', { 
                 status: 'connecting', 
-                message: 'Connecting to WhatsApp...' 
+                message: session.usePairingCode 
+                    ? 'Generating pairing code...' 
+                    : 'Waiting for QR code...' 
             });
         }
 
@@ -117,7 +154,7 @@ async function initWhatsApp(sessionId, phoneNumber = null, socketIoClient) {
                 status: 'connected',
                 message: 'Successfully connected!',
                 user: sock.user,
-                sessionData: sessionData // Send session credentials
+                sessionData: sessionData
             });
         }
 
@@ -143,29 +180,35 @@ async function initWhatsApp(sessionId, phoneNumber = null, socketIoClient) {
         }
     });
 
-    // Request pairing code if phone number provided
-    if (phoneNumber && !sock.authState.creds.registered) {
-        try {
-            // Wait a bit for connection to establish
-            setTimeout(async () => {
-                try {
+    // Alternative: Request pairing code immediately if phone number provided
+    // This is a more aggressive approach that tries to request code before QR event
+    if (usePairingCode && !sock.authState.creds.registered) {
+        console.log(`[${sessionId}] Preparing to request pairing code for ${phoneNumber}`);
+        
+        // Wait for socket to be ready, then request code
+        const requestCode = async () => {
+            try {
+                if (!sock.authState.creds.registered && !session.pairingCodeRequested) {
+                    const session = sessions.get(sessionId);
+                    if (session) session.pairingCodeRequested = true;
+                    
                     const code = await sock.requestPairingCode(phoneNumber);
-                    console.log(`[${sessionId}] Pairing code generated: ${code}`);
-                    session.socket.emit('pairingCode', { 
+                    console.log(`[${sessionId}] Pairing code generated early: ${code}`);
+                    socketIoClient.emit('pairingCode', { 
                         code: code,
                         phoneNumber: phoneNumber,
                         message: `Enter this code in WhatsApp: ${code}`
                     });
-                } catch (err) {
-                    console.error('Pairing code error:', err);
-                    session.socket.emit('error', { 
-                        message: 'Failed to generate pairing code. Try QR code method.' 
-                    });
                 }
-            }, 2000);
-        } catch (err) {
-            console.error('Error requesting pairing code:', err);
-        }
+            } catch (err) {
+                console.error('Early pairing code request failed:', err);
+                // Will fallback to QR event handler
+            }
+        };
+
+        // Try multiple times with increasing delays
+        setTimeout(requestCode, 2000);
+        setTimeout(requestCode, 4000);
     }
 
     return sock;
@@ -190,7 +233,7 @@ io.on('connection', (socket) => {
             socket.emit('status', { 
                 status: 'initializing', 
                 message: method === 'code' && formattedPhone 
-                    ? 'Generating pairing code...' 
+                    ? 'Requesting pairing code from WhatsApp...' 
                     : 'Waiting for QR code...' 
             });
         } catch (error) {
