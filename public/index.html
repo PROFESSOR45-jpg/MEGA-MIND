@@ -6,14 +6,10 @@
     <title>MEGA MIND - WhatsApp Session Generator</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             display: flex;
@@ -25,8 +21,8 @@
         .container {
             background: white;
             border-radius: 20px;
-            padding: 40px;
-            max-width: 500px;
+            padding: 30px;
+            max-width: 450px;
             width: 100%;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
         }
@@ -34,70 +30,67 @@
         h1 {
             text-align: center;
             color: #333;
-            margin-bottom: 10px;
-            font-size: 28px;
+            margin-bottom: 5px;
+            font-size: 24px;
         }
 
         .subtitle {
             text-align: center;
             color: #666;
-            margin-bottom: 30px;
-            font-size: 14px;
+            margin-bottom: 25px;
+            font-size: 13px;
         }
 
-        .method-selector {
+        .method-tabs {
             display: flex;
-            gap: 10px;
-            margin-bottom: 30px;
-        }
-
-        .method-btn {
-            flex: 1;
-            padding: 15px;
-            border: 2px solid #e0e0e0;
-            background: white;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: all 0.3s;
-            text-align: center;
-            font-weight: 600;
-        }
-
-        .method-btn:hover {
-            border-color: #667eea;
-            transform: translateY(-2px);
-        }
-
-        .method-btn.active {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
-        }
-
-        .input-group {
+            background: #f5f5f5;
+            border-radius: 12px;
+            padding: 5px;
             margin-bottom: 20px;
+        }
+
+        .method-tab {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            background: transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s;
+            color: #666;
+        }
+
+        .method-tab.active {
+            background: white;
+            color: #667eea;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .input-section {
             display: none;
         }
 
-        .input-group.active {
+        .input-section.active {
             display: block;
         }
 
         label {
             display: block;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
             color: #555;
             font-weight: 600;
-            font-size: 14px;
+            font-size: 13px;
         }
 
         input[type="text"] {
             width: 100%;
             padding: 12px;
             border: 2px solid #e0e0e0;
-            border-radius: 8px;
+            border-radius: 10px;
             font-size: 16px;
-            transition: border-color 0.3s;
+            transition: all 0.3s;
         }
 
         input[type="text"]:focus {
@@ -105,15 +98,15 @@
             border-color: #667eea;
         }
 
-        .hint {
+        .input-hint {
             font-size: 12px;
             color: #888;
-            margin-top: 5px;
+            margin-top: 6px;
         }
 
         .start-btn {
             width: 100%;
-            padding: 15px;
+            padding: 14px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
@@ -121,225 +114,165 @@
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 15px;
+            transition: transform 0.2s;
         }
 
-        .start-btn:hover {
+        .start-btn:hover:not(:disabled) {
             transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
         }
 
         .start-btn:disabled {
-            opacity: 0.6;
+            opacity: 0.7;
             cursor: not-allowed;
-            transform: none;
         }
 
         .status {
-            margin-top: 20px;
-            padding: 15px;
-            border-radius: 10px;
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 8px;
             text-align: center;
             display: none;
+            font-size: 14px;
         }
 
         .status.show {
             display: block;
         }
 
-        .status.info {
-            background: #e3f2fd;
-            color: #1976d2;
-        }
+        .status.info { background: #e3f2fd; color: #1976d2; }
+        .status.success { background: #e8f5e9; color: #2e7d32; }
+        .status.error { background: #ffebee; color: #c62828; }
 
-        .status.success {
-            background: #e8f5e9;
-            color: #388e3c;
-        }
-
-        .status.error {
-            background: #ffebee;
-            color: #c62828;
-        }
-
-        .qr-container {
+        .code-section {
             text-align: center;
             margin-top: 20px;
             display: none;
         }
 
-        .qr-container.show {
+        .code-section.show {
             display: block;
+            animation: fadeIn 0.5s;
         }
 
-        .qr-container img {
-            max-width: 250px;
-            border: 10px solid white;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            border-radius: 10px;
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        .pairing-code {
-            text-align: center;
-            margin-top: 20px;
-            display: none;
-        }
-
-        .pairing-code.show {
-            display: block;
-        }
-
-        .code-display {
-            font-size: 48px;
-            font-weight: bold;
-            color: #667eea;
-            letter-spacing: 10px;
-            margin: 20px 0;
-            font-family: 'Courier New', monospace;
-            background: #f5f5f5;
-            padding: 20px;
-            border-radius: 10px;
-            border: 2px dashed #667eea;
+        .code-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            margin: 15px 0;
             position: relative;
         }
 
-        .notification-badge {
-            display: inline-block;
+        .code-label {
+            font-size: 12px;
+            opacity: 0.9;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .code-value {
+            font-size: 42px;
+            font-weight: bold;
+            letter-spacing: 8px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .code-timer {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+
+        .notification-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
             background: #4caf50;
             color: white;
-            padding: 5px 10px;
+            padding: 8px 16px;
             border-radius: 20px;
-            font-size: 12px;
+            font-size: 13px;
+            font-weight: 600;
             margin-top: 10px;
             animation: pulse 2s infinite;
         }
 
         @keyframes pulse {
             0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
+            50% { opacity: 0.8; }
         }
 
-        .session-data {
+        .steps {
+            background: #fff8e1;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            text-align: left;
+            font-size: 13px;
+        }
+
+        .steps ol {
+            margin-left: 20px;
+            margin-top: 8px;
+        }
+
+        .steps li {
+            margin-bottom: 6px;
+            color: #5d4037;
+        }
+
+        .session-box {
             margin-top: 20px;
             display: none;
         }
 
-        .session-data.show {
+        .session-box.show {
             display: block;
         }
 
-        .session-box {
-            position: relative;
-            background: #f8f9fa;
+        .session-textarea {
+            width: 100%;
+            height: 100px;
+            padding: 12px;
             border: 2px solid #e0e0e0;
             border-radius: 10px;
-            padding: 15px;
-            margin-top: 10px;
-        }
-
-        textarea {
-            width: 100%;
-            height: 120px;
-            padding: 10px;
-            border: none;
-            background: transparent;
-            font-family: 'Courier New', monospace;
+            font-family: monospace;
             font-size: 11px;
             resize: none;
-            outline: none;
+            background: #fafafa;
         }
 
         .copy-btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
             width: 100%;
-            margin-top: 15px;
+            margin-top: 10px;
             padding: 12px;
             background: #667eea;
             color: white;
             border: none;
             border-radius: 8px;
-            cursor: pointer;
             font-weight: 600;
-            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
             transition: all 0.3s;
-            position: relative;
         }
 
         .copy-btn:hover {
             background: #5a6fd6;
-            transform: translateY(-1px);
-        }
-
-        .copy-btn:active {
-            transform: translateY(0);
         }
 
         .copy-btn.copied {
             background: #4caf50;
-        }
-
-        .copy-btn svg {
-            width: 18px;
-            height: 18px;
-        }
-
-        .keyboard-shortcut {
-            position: absolute;
-            right: 12px;
-            font-size: 11px;
-            opacity: 0.7;
-            background: rgba(255,255,255,0.2);
-            padding: 2px 6px;
-            border-radius: 4px;
-        }
-
-        .instructions {
-            background: #fff3e0;
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 15px;
-            font-size: 13px;
-            color: #e65100;
-        }
-
-        .instructions ol {
-            margin-left: 20px;
-            margin-top: 10px;
-        }
-
-        .instructions li {
-            margin-bottom: 5px;
-        }
-
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-right: 10px;
-            vertical-align: middle;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .logout-btn {
-            margin-top: 10px;
-            padding: 10px 20px;
-            background: #f44336;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            width: 100%;
         }
 
         .toast {
@@ -349,338 +282,258 @@
             background: #333;
             color: white;
             padding: 15px 20px;
-            border-radius: 8px;
+            border-radius: 10px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
             display: none;
             align-items: center;
             gap: 10px;
             z-index: 1000;
-            animation: slideIn 0.3s ease;
+            animation: slideIn 0.3s;
         }
 
-        .toast.show {
-            display: flex;
-        }
-
-        .toast.success {
-            background: #4caf50;
-        }
-
-        .toast.error {
-            background: #f44336;
-        }
+        .toast.show { display: flex; }
+        .toast.success { background: #4caf50; }
+        .toast.error { background: #f44336; }
 
         @keyframes slideIn {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
         }
 
-        .toast-icon {
-            font-size: 20px;
+        .loading-dots:after {
+            content: ' .';
+            animation: dots 1.5s steps(5, end) infinite;
         }
 
-        .hint-box {
-            background: #e8f5e9;
-            border-left: 4px solid #4caf50;
-            padding: 10px;
-            margin-top: 10px;
-            border-radius: 4px;
-            font-size: 12px;
-            color: #2e7d32;
+        @keyframes dots {
+            0%, 20% { content: ' .'; }
+            40% { content: ' ..'; }
+            60% { content: ' ...'; }
+            80%, 100% { content: ''; }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🤖 MEGA MIND</h1>
-        <p class="subtitle">WhatsApp Session Generator for Render</p>
+        <p class="subtitle">WhatsApp Session Generator</p>
 
-        <div class="method-selector">
-            <button class="method-btn active" onclick="selectMethod('qr')">
-                <span>📷</span>
-                QR Code
-            </button>
-            <button class="method-btn" onclick="selectMethod('code')">
-                <span>🔢</span>
-                Pairing Code
-            </button>
+        <div class="method-tabs">
+            <button class="method-tab active" onclick="setMethod('qr')">📷 QR Code</button>
+            <button class="method-tab" onclick="setMethod('code')">🔢 Pairing Code</button>
         </div>
 
-        <div id="qrSection" class="input-group active">
-            <label>QR Code Method</label>
-            <p class="hint">Scan the QR code with WhatsApp on your phone</p>
+        <div id="qrSection" class="input-section active">
+            <p style="text-align: center; color: #666; font-size: 14px;">
+                Scan QR code with your WhatsApp camera
+            </p>
         </div>
 
-        <div id="codeSection" class="input-group">
-            <label for="phoneNumber">Phone Number</label>
-            <input type="text" id="phoneNumber" placeholder="e.g., 254112658916 (with country code, no +)">
-            <p class="hint">Enter your phone number with country code (e.g., 254112658916 for KENYA)</p>
+        <div id="codeSection" class="input-section">
+            <label>Phone Number</label>
+            <input type="text" id="phoneNumber" placeholder="14155552671">
+            <p class="input-hint">Include country code, no + or spaces (e.g., 14155552671)</p>
         </div>
 
-        <button class="start-btn" onclick="startSession()">
-            Start Session
+        <button class="start-btn" id="startBtn" onclick="startSession()">
+            Generate Session
         </button>
 
         <div id="status" class="status"></div>
 
-        <div id="qrContainer" class="qr-container">
-            <h3>Scan this QR Code</h3>
-            <img id="qrImage" src="" alt="QR Code">
-            <div class="instructions">
+        <!-- QR Display -->
+        <div id="qrBox" class="code-section">
+            <img id="qrImage" style="max-width: 200px; border-radius: 10px;" src="" alt="QR">
+            <div class="steps">
                 <strong>How to scan:</strong>
                 <ol>
-                    <li>Open WhatsApp on your phone</li>
-                    <li>Tap Menu (⋮) or Settings (⚙️)</li>
+                    <li>Open WhatsApp → Settings</li>
                     <li>Tap "Linked Devices"</li>
                     <li>Tap "Link a Device"</li>
-                    <li>Point your camera at the QR code</li>
+                    <li>Point camera at QR code</li>
                 </ol>
             </div>
         </div>
 
-        <div id="pairingContainer" class="pairing-code">
-            <h3>🔐 Your Pairing Code</h3>
-            <div class="code-display" id="pairingCode">------</div>
-            <div id="notificationBadge" class="notification-badge" style="display: none;">
-                📱 Notification sent to your WhatsApp
+        <!-- Pairing Code Display -->
+        <div id="codeBox" class="code-section">
+            <div class="code-box">
+                <div class="code-label">Your Pairing Code</div>
+                <div class="code-value" id="pairingCode">------</div>
+                <div class="code-timer">⏱️ Expires in 2 minutes</div>
             </div>
-            <div class="hint-box">
-                <strong>💡 Tip:</strong> Check your WhatsApp messages! We sent you a notification with this code.
+            
+            <div class="notification-pill" id="notifBadge">
+                📱 Sent to your WhatsApp
             </div>
-            <div class="instructions">
-                <strong>How to use:</strong>
+
+            <div class="steps">
+                <strong>How to link:</strong>
                 <ol>
                     <li>Open WhatsApp on your phone</li>
-                    <li>Tap Menu (⋮) or Settings (⚙️)</li>
-                    <li>Tap "Linked Devices"</li>
-                    <li>Tap "Link with phone number instead"</li>
-                    <li>Enter the code shown above</li>
+                    <li>Go to Settings → Linked Devices</li>
+                    <li>Tap "Link with phone number"</li>
+                    <li>Enter the code above ↑</li>
                 </ol>
             </div>
         </div>
 
-        <div id="sessionData" class="session-data">
-            <h3>✅ Session Connected!</h3>
-            <p style="margin-bottom: 10px; color: #666;">Copy this session data and save it securely:</p>
-            
-            <div class="session-box">
-                <textarea id="sessionText" readonly></textarea>
+        <!-- Session Data -->
+        <div id="sessionBox" class="session-box">
+            <div style="text-align: center; margin-bottom: 10px;">
+                <span style="color: #4caf50; font-size: 20px;">✓</span>
+                <strong style="color: #333;"> Connected!</strong>
             </div>
-            
-            <button class="copy-btn" onclick="copySession()" id="copyBtn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <textarea class="session-textarea" id="sessionText" readonly></textarea>
+            <button class="copy-btn" id="copyBtn" onclick="copySession()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2"></rect>
                     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                 </svg>
-                <span id="copyBtnText">Copy Session Data</span>
-                <span class="keyboard-shortcut">Ctrl+C</span>
+                <span id="copyText">Copy to Clipboard</span>
             </button>
-            
-            <button class="logout-btn" onclick="logout()">🚪 Logout & Clear Session</button>
         </div>
     </div>
 
     <div id="toast" class="toast">
-        <span class="toast-icon" id="toastIcon">✓</span>
-        <span id="toastMessage">Copied to clipboard!</span>
+        <span id="toastIcon">✓</span>
+        <span id="toastMsg">Copied!</span>
     </div>
 
     <script>
         const socket = io();
         let currentMethod = 'qr';
-        let currentSessionData = '';
+        let sessionData = '';
 
-        function selectMethod(method) {
+        function setMethod(method) {
             currentMethod = method;
-            document.querySelectorAll('.method-btn').forEach(btn => btn.classList.remove('active'));
-            document.querySelectorAll('.input-group').forEach(group => group.classList.remove('active'));
+            document.querySelectorAll('.method-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.input-section').forEach(s => s.classList.remove('active'));
             
-            event.target.closest('.method-btn').classList.add('active');
+            event.target.classList.add('active');
+            document.getElementById(method === 'qr' ? 'qrSection' : 'codeSection').classList.add('active');
             
-            if (method === 'qr') {
-                document.getElementById('qrSection').classList.add('active');
-            } else {
-                document.getElementById('codeSection').classList.add('active');
-            }
-
             hideAll();
         }
 
         function hideAll() {
-            document.getElementById('qrContainer').classList.remove('show');
-            document.getElementById('pairingContainer').classList.remove('show');
-            document.getElementById('sessionData').classList.remove('show');
+            document.getElementById('qrBox').classList.remove('show');
+            document.getElementById('codeBox').classList.remove('show');
+            document.getElementById('sessionBox').classList.remove('show');
             document.getElementById('status').classList.remove('show');
-            document.getElementById('notificationBadge').style.display = 'none';
+            document.getElementById('notifBadge').style.display = 'none';
         }
 
-        function showStatus(message, type = 'info') {
-            const status = document.getElementById('status');
-            status.textContent = message;
-            status.className = `status show ${type}`;
+        function showStatus(msg, type) {
+            const s = document.getElementById('status');
+            s.textContent = msg;
+            s.className = `status show ${type}`;
         }
 
-        function showToast(message, type = 'success') {
-            const toast = document.getElementById('toast');
-            const toastMessage = document.getElementById('toastMessage');
-            const toastIcon = document.getElementById('toastIcon');
-            
-            toastMessage.textContent = message;
-            toast.className = `toast show ${type}`;
-            
-            if (type === 'success') {
-                toastIcon.textContent = '✓';
-            } else if (type === 'error') {
-                toastIcon.textContent = '✕';
-            }
-            
-            setTimeout(() => {
-                toast.classList.remove('show');
-            }, 3000);
+        function showToast(msg, type = 'success') {
+            const t = document.getElementById('toast');
+            document.getElementById('toastMsg').textContent = msg;
+            t.className = `toast show ${type}`;
+            setTimeout(() => t.classList.remove('show'), 3000);
         }
 
         function startSession() {
-            const btn = document.querySelector('.start-btn');
-            const phoneNumber = document.getElementById('phoneNumber').value.trim();
+            const btn = document.getElementById('startBtn');
+            const phone = document.getElementById('phoneNumber').value.trim();
             
-            if (currentMethod === 'code' && !phoneNumber) {
-                showStatus('Please enter your phone number', 'error');
+            if (currentMethod === 'code' && !phone) {
+                showStatus('Enter phone number', 'error');
                 return;
             }
 
             btn.disabled = true;
-            btn.innerHTML = '<span class="loading"></span>Initializing...';
+            btn.innerHTML = '<span class="loading-dots">Generating</span>';
             hideAll();
-            showStatus('Initializing WhatsApp connection...', 'info');
+            showStatus(currentMethod === 'code' ? 'Requesting code from WhatsApp...' : 'Loading QR code...', 'info');
 
             socket.emit('startSession', { 
                 method: currentMethod,
-                phoneNumber: phoneNumber 
+                phoneNumber: phone 
             });
         }
 
         socket.on('qr', (data) => {
             document.getElementById('qrImage').src = data.qr;
-            document.getElementById('qrContainer').classList.add('show');
-            showStatus(data.message, 'info');
-            resetButton();
+            document.getElementById('qrBox').classList.add('show');
+            showStatus('Scan the QR code', 'info');
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('startBtn').textContent = 'Generate Session';
         });
 
         socket.on('pairingCode', (data) => {
             document.getElementById('pairingCode').textContent = data.code;
-            document.getElementById('pairingContainer').classList.add('show');
+            document.getElementById('codeBox').classList.add('show');
             
-            // Show notification badge if notification was sent
             if (data.notificationSent) {
-                document.getElementById('notificationBadge').style.display = 'inline-block';
-                showToast('📱 Check your WhatsApp! We sent you the pairing code.', 'success');
+                document.getElementById('notifBadge').style.display = 'inline-flex';
+                showToast('Code sent to your WhatsApp!', 'success');
             }
             
-            showStatus(data.message, 'info');
-            resetButton();
-        });
-
-        socket.on('status', (data) => {
-            showStatus(data.message, 'info');
+            showStatus('Enter this code in WhatsApp', 'info');
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('startBtn').textContent = 'Generate Session';
         });
 
         socket.on('connected', (data) => {
-            showStatus(data.message, 'success');
-            currentSessionData = data.sessionData;
+            sessionData = data.sessionData;
             document.getElementById('sessionText').value = data.sessionData;
-            document.getElementById('sessionData').classList.add('show');
-            document.getElementById('qrContainer').classList.remove('show');
-            document.getElementById('pairingContainer').classList.remove('show');
-            resetButton();
-            
-            // Auto-select text for easy copying
-            document.getElementById('sessionText').select();
-        });
-
-        socket.on('disconnected', (data) => {
-            showStatus(data.message, 'error');
-            hideAll();
-            resetButton();
+            document.getElementById('sessionBox').classList.add('show');
+            document.getElementById('qrBox').classList.remove('show');
+            document.getElementById('codeBox').classList.remove('show');
+            showStatus('Successfully connected!', 'success');
+            showToast('Device linked successfully!', 'success');
         });
 
         socket.on('error', (data) => {
             showStatus(data.message, 'error');
             showToast(data.message, 'error');
-            resetButton();
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('startBtn').textContent = 'Generate Session';
         });
 
-        function resetButton() {
-            const btn = document.querySelector('.start-btn');
-            btn.disabled = false;
-            btn.textContent = 'Start Session';
-        }
+        socket.on('disconnected', (data) => {
+            showStatus(data.message, 'error');
+            hideAll();
+        });
 
-        // Copy function with keyboard shortcut support
         async function copySession() {
-            const textarea = document.getElementById('sessionText');
-            const copyBtn = document.getElementById('copyBtn');
-            const copyBtnText = document.getElementById('copyBtnText');
-            
             try {
-                // Modern Clipboard API
-                if (navigator.clipboard && window.isSecureContext) {
-                    await navigator.clipboard.writeText(currentSessionData);
-                } else {
-                    // Fallback for older browsers
-                    textarea.select();
-                    textarea.setSelectionRange(0, 99999); // For mobile
-                    document.execCommand('copy');
-                }
-                
-                // Visual feedback
-                copyBtn.classList.add('copied');
-                copyBtnText.textContent = '✓ Copied!';
-                showToast('Session data copied to clipboard!', 'success');
+                await navigator.clipboard.writeText(sessionData);
+                const btn = document.getElementById('copyBtn');
+                const txt = document.getElementById('copyText');
+                btn.classList.add('copied');
+                txt.textContent = 'Copied!';
+                showToast('Session copied to clipboard!');
                 
                 setTimeout(() => {
-                    copyBtn.classList.remove('copied');
-                    copyBtnText.textContent = 'Copy Session Data';
+                    btn.classList.remove('copied');
+                    txt.textContent = 'Copy to Clipboard';
                 }, 2000);
-                
             } catch (err) {
-                console.error('Copy failed:', err);
-                showToast('Failed to copy. Please select and copy manually (Ctrl+C).', 'error');
-                textarea.select();
+                // Fallback
+                const ta = document.getElementById('sessionText');
+                ta.select();
+                document.execCommand('copy');
+                showToast('Copied!');
             }
         }
 
-        // Keyboard shortcut: Ctrl+C to copy when session is shown
+        // Keyboard shortcut
         document.addEventListener('keydown', (e) => {
             if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
-                const sessionData = document.getElementById('sessionData');
-                if (sessionData.classList.contains('show') && window.getSelection().toString() === '') {
-                    e.preventDefault();
-                    copySession();
+                if (document.getElementById('sessionBox').classList.contains('show')) {
+                    const selection = window.getSelection().toString();
+                    if (!selection && sessionData) {
+                        e.preventDefault();
+                        copySession();
+                    }
                 }
             }
-        });
-
-        // Also allow clicking on the textarea to auto-select
-        document.getElementById('sessionText').addEventListener('click', function() {
-            this.select();
-        });
-
-        function logout() {
-            socket.emit('logout');
-            hideAll();
-            showStatus('Logged out successfully', 'info');
-            showToast('Session cleared successfully', 'success');
-        }
-
-        // Cleanup on page unload
-        window.addEventListener('beforeunload', () => {
-            socket.emit('logout');
         });
     </script>
 </body>
