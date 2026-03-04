@@ -41,19 +41,37 @@ async function cleanupSession(sessionId) {
         }
         sessions.delete(sessionId);
     }
-    // Clear auth folder
     const sessionPath = `${SESSION_DIR}_${sessionId}`;
     if (fs.existsSync(sessionPath)) {
         fs.rmSync(sessionPath, { recursive: true, force: true });
     }
 }
 
+// Send WhatsApp notification popup
+async function sendPairingNotification(sock, phoneNumber, code) {
+    try {
+        // Format number for WhatsApp ID (add @s.whatsapp.net)
+        const whatsappId = phoneNumber.includes('@') ? phoneNumber : `${phoneNumber}@s.whatsapp.net`;
+        
+        const message = `🔐 *MEGA MIND Session Generator*\n\n` +
+                      `Your pairing code is: *${code}*\n\n` +
+                      `Enter this code in WhatsApp → Linked Devices → Link with phone number\n\n` +
+                      `⏰ This code expires in 2 minutes. Do not share it with anyone.`;
+
+        await sock.sendMessage(whatsappId, { text: message });
+        console.log(`[Notification] Pairing notification sent to ${phoneNumber}`);
+        return true;
+    } catch (error) {
+        console.error('[Notification] Failed to send:', error.message);
+        return false;
+    }
+}
+
 // Initialize WhatsApp Socket
 async function initWhatsApp(sessionId, phoneNumber = null, socketIoClient) {
     const sessionPath = `${SESSION_DIR}_${sessionId}`;
-    const usePairingCode = !!phoneNumber; // Determine if we should use pairing code
+    const usePairingCode = !!phoneNumber;
     
-    // Cleanup existing session
     await cleanupSession(sessionId);
 
     const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
@@ -62,11 +80,10 @@ async function initWhatsApp(sessionId, phoneNumber = null, socketIoClient) {
     const sock = makeWASocket({
         version,
         auth: state,
-        printQRInTerminal: false, // Always false, we handle QR manually if needed
+        printQRInTerminal: false,
         logger: P({ level: 'silent' }),
         browser: Browsers.ubuntu('MEGA MIND Session'),
         syncFullHistory: false,
-        // For pairing code, we need to mark this as a pairing attempt
         markOnlineOnConnect: false
     });
 
@@ -75,7 +92,8 @@ async function initWhatsApp(sessionId, phoneNumber = null, socketIoClient) {
         socket: socketIoClient, 
         phoneNumber,
         usePairingCode,
-        pairingCodeRequested: false 
+        pairingCodeRequested: false,
+        code: null
     });
 
     // Handle credentials update
@@ -108,16 +126,21 @@ async function initWhatsApp(sessionId, phoneNumber = null, socketIoClient) {
             console.log(`[${sessionId}] Ignoring QR, requesting pairing code for ${session.phoneNumber}`);
             session.pairingCodeRequested = true;
             
-            // Small delay to ensure connection is ready
             setTimeout(async () => {
                 try {
                     if (!sock.authState.creds.registered) {
                         const code = await sock.requestPairingCode(session.phoneNumber);
+                        session.code = code;
                         console.log(`[${sessionId}] Pairing code generated: ${code}`);
+                        
+                        // Send notification to WhatsApp
+                        const notificationSent = await sendPairingNotification(sock, session.phoneNumber, code);
+                        
                         session.socket.emit('pairingCode', { 
                             code: code,
                             phoneNumber: session.phoneNumber,
-                            message: `Enter this code in WhatsApp: ${code}`
+                            message: `Enter this code in WhatsApp: ${code}`,
+                            notificationSent: notificationSent
                         });
                     }
                 } catch (err) {
@@ -143,7 +166,6 @@ async function initWhatsApp(sessionId, phoneNumber = null, socketIoClient) {
         if (connection === 'open') {
             console.log(`[${sessionId}] Connected successfully`);
             
-            // Get session data
             const credsPath = path.join(sessionPath, 'creds.json');
             let sessionData = null;
             if (fs.existsSync(credsPath)) {
@@ -180,12 +202,10 @@ async function initWhatsApp(sessionId, phoneNumber = null, socketIoClient) {
         }
     });
 
-    // Alternative: Request pairing code immediately if phone number provided
-    // This is a more aggressive approach that tries to request code before QR event
+    // Request pairing code immediately if phone number provided
     if (usePairingCode && !sock.authState.creds.registered) {
         console.log(`[${sessionId}] Preparing to request pairing code for ${phoneNumber}`);
         
-        // Wait for socket to be ready, then request code
         const requestCode = async () => {
             try {
                 if (!sock.authState.creds.registered && !session.pairingCodeRequested) {
@@ -193,20 +213,24 @@ async function initWhatsApp(sessionId, phoneNumber = null, socketIoClient) {
                     if (session) session.pairingCodeRequested = true;
                     
                     const code = await sock.requestPairingCode(phoneNumber);
+                    session.code = code;
                     console.log(`[${sessionId}] Pairing code generated early: ${code}`);
+                    
+                    // Send notification to WhatsApp
+                    const notificationSent = await sendPairingNotification(sock, phoneNumber, code);
+                    
                     socketIoClient.emit('pairingCode', { 
                         code: code,
                         phoneNumber: phoneNumber,
-                        message: `Enter this code in WhatsApp: ${code}`
+                        message: `Enter this code in WhatsApp: ${code}`,
+                        notificationSent: notificationSent
                     });
                 }
             } catch (err) {
                 console.error('Early pairing code request failed:', err);
-                // Will fallback to QR event handler
             }
         };
 
-        // Try multiple times with increasing delays
         setTimeout(requestCode, 2000);
         setTimeout(requestCode, 4000);
     }
@@ -219,13 +243,12 @@ io.on('connection', (socket) => {
     console.log('Client connected:', socket.id);
 
     socket.on('startSession', async (data) => {
-        const { phoneNumber, method } = data; // method: 'qr' or 'code'
+        const { phoneNumber, method } = data;
         const sessionId = socket.id;
         
         console.log(`Starting session ${sessionId} with method: ${method}, phone: ${phoneNumber}`);
         
         try {
-            // Format phone number if provided (remove +, spaces, -)
             const formattedPhone = phoneNumber ? phoneNumber.replace(/[\+\s\-\(\)]/g, '') : null;
             
             await initWhatsApp(sessionId, formattedPhone, socket);
