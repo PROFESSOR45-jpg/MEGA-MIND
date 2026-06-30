@@ -62,6 +62,7 @@ module.exports = [
                 return;
             }
             config.MODE = choice;
+            db.setRuntimeSetting('mode', choice);
             await mega.reply(m, `✅ Mode set to *${choice}*.`);
         }
     },
@@ -77,6 +78,7 @@ module.exports = [
                 return;
             }
             config.PREFIX = newPrefix;
+            db.setRuntimeSetting('prefix', newPrefix);
             await mega.reply(m, `✅ Prefix changed to: ${newPrefix}`);
         }
     },
@@ -87,7 +89,53 @@ module.exports = [
         ownerOnly: true,
         handler: async ({ mega, m, config }) => {
             config.STATUS_REACT = !config.STATUS_REACT;
+            db.setRuntimeSetting('statusReact', config.STATUS_REACT);
             await mega.reply(m, `💯 Status auto-react: ${config.STATUS_REACT ? '✅ ON' : '❌ OFF'}`);
+        }
+    },
+    {
+        name: 'statusemojis',
+        aliases: ['setstatusemojis'],
+        category: 'protection',
+        description: 'Set the emoji pool used for status auto-react',
+        ownerOnly: true,
+        handler: async ({ mega, m, config, args }) => {
+            if (!args.length) {
+                await mega.reply(
+                    m,
+                    `Current pool: ${config.STATUS_REACTION_EMOJIS.join(' ')}\n` +
+                    `Usage: .statusemojis 🔥 ❤️ 😍 👍 💯`
+                );
+                return;
+            }
+            config.STATUS_REACTION_EMOJIS = args;
+            db.setRuntimeSetting('statusReactionEmojis', args);
+            await mega.reply(m, `✅ Status react emoji pool updated:\n${args.join(' ')}`);
+        }
+    },
+    {
+        name: 'presence',
+        aliases: ['setpresence'],
+        category: 'protection',
+        description: 'Set bot presence: typing / recording / both / online / offline / off',
+        ownerOnly: true,
+        handler: async ({ mega, m, config, args }) => {
+            const PresenceManager = require('../lib/presence');
+            const choice = (args[0] || '').toLowerCase();
+
+            if (!PresenceManager.VALID_MODES.includes(choice)) {
+                await mega.reply(
+                    m,
+                    `Current presence: *${config.PRESENCE_MODE}*\n` +
+                    `Usage: .presence <${PresenceManager.VALID_MODES.join('|')}>`
+                );
+                return;
+            }
+
+            config.PRESENCE_MODE = choice;
+            db.setRuntimeSetting('presenceMode', choice);
+            await mega.presence.applyGlobalPresence();
+            await mega.reply(m, `📡 Presence set to *${choice}*.`);
         }
     },
     {

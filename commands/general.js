@@ -2,6 +2,10 @@
  * General commands — menu, ping, bot info, etc.
  */
 
+const { header, footer, row } = require('../lib/style');
+const menuState = require('../lib/menuState');
+const { renderMainMenu, renderCategory, CATEGORIES } = require('../lib/menuRender');
+
 module.exports = [
     {
         name: 'menu',
@@ -9,28 +13,40 @@ module.exports = [
         category: 'general',
         description: 'Show the full command list',
         cooldown: 5,
-        handler: async ({ mega, m, config, commandHandlerRef }) => {
-            // commandHandlerRef is injected by index.js after construction
-            const handler = commandHandlerRef;
-            const categories = handler.getCategories();
+        handler: async ({ mega, m, config, args, commandHandlerRef }) => {
+            const jid = m.key.remoteJid;
 
-            let text = `╭───「 *${config.BOT_NAME}* 」\n`;
-            text += `│ Prefix: *${config.PREFIX}*\n`;
-            text += `│ Mode: *${config.MODE}*\n`;
-            text += `╰───────────────\n\n`;
-
-            for (const [category, defs] of categories) {
-                const unique = [...new Set(defs)];
-                text += `*▸ ${category.toUpperCase()}*\n`;
-                for (const def of unique) {
-                    text += `  ${config.PREFIX}${def.name} — ${def.description || ''}\n`;
+            // .menu <category> jumps straight to a section by name/alias
+            if (args[0]) {
+                const query = args[0].toLowerCase();
+                const match = CATEGORIES.find(
+                    (c) => c.key === query || c.label.toLowerCase().startsWith(query)
+                );
+                if (match) {
+                    const text = renderCategory(match, config, commandHandlerRef);
+                    await mega.sendBranded(jid, text, m);
+                    return;
                 }
-                text += '\n';
             }
 
-            text += `_Send ${config.PREFIX}ping to check if I'm online._`;
+            menuState.set(jid, CATEGORIES);
+            const text = renderMainMenu(config, m.pushName);
+            await mega.sendBranded(jid, text, m);
+        }
+    },
+    {
+        name: 'repo',
+        aliases: ['source', 'github', 'sc'],
+        category: 'general',
+        description: "Get the bot's source code repository",
+        handler: async ({ mega, m, config }) => {
+            let text = `${header(config, 'Source Code')}\n\n`;
+            text += row('📦', 'Repo', config.REPO_URL) + '\n';
+            text += row('🏷️', 'Version', config.VERSION) + '\n\n';
+            text += `_Star the repo if you find ${config.BOT_NAME} useful! ⭐_\n\n`;
+            text += footer(config);
 
-            await mega.reply(m, text.trim());
+            await mega.sendBranded(m.key.remoteJid, text.trim(), m);
         }
     },
     {
@@ -52,14 +68,15 @@ module.exports = [
         category: 'general',
         description: 'Show bot information',
         handler: async ({ mega, m, config }) => {
-            const text =
-                `🤖 *${config.BOT_NAME}* v${config.VERSION}\n\n` +
-                `👑 Owner: ${config.OWNER_NAME}\n` +
-                `⚙️ Mode: ${config.MODE}\n` +
-                `🔧 Prefix: ${config.PREFIX}\n` +
-                `⏱️ Uptime: ${mega.getUptime()}\n` +
-                `💾 Memory: ${mega.formatBytes(process.memoryUsage().heapUsed)}`;
-            await mega.reply(m, text);
+            let text = `${header(config, 'Bot Information')}\n\n`;
+            text += row('👑', 'Owner', config.OWNER_NAME) + '\n';
+            text += row('⚙️', 'Mode', config.MODE) + '\n';
+            text += row('🔧', 'Prefix', config.PREFIX) + '\n';
+            text += row('⏱️', 'Uptime', mega.getUptime()) + '\n';
+            text += row('💾', 'Memory', mega.formatBytes(process.memoryUsage().heapUsed)) + '\n\n';
+            text += footer(config);
+
+            await mega.sendBranded(m.key.remoteJid, text.trim(), m);
         }
     },
     {
