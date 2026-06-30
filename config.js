@@ -9,22 +9,47 @@
 
 const fs = require('fs');
 if (fs.existsSync('.env')) require('dotenv').config();
+const path = require('path');
 
 // Load set.js (manual settings file) if present. Any value set there fills
 // in for that field ONLY if the matching environment variable is not
 // already set — so env vars on hosts that support them still win.
-const path = require('path');
+// Wrapped in try/catch: a typo or a broken paste in set.js should never
+// crash the whole bot with an unreadable stack trace.
 const setFilePath = path.join(__dirname, 'set.js');
 if (fs.existsSync(setFilePath)) {
-    const manual = require(setFilePath);
-    for (const [key, value] of Object.entries(manual)) {
-        if (process.env[key] === undefined || process.env[key] === '') {
-            if (typeof value === 'boolean') {
-                process.env[key] = value ? 'true' : 'false';
-            } else if (value !== '' && value !== undefined && value !== null) {
-                process.env[key] = String(value);
+    try {
+        const manual = require(setFilePath);
+        for (const [key, value] of Object.entries(manual)) {
+            if (process.env[key] === undefined || process.env[key] === '') {
+                if (typeof value === 'boolean') {
+                    process.env[key] = value ? 'true' : 'false';
+                } else if (value !== '' && value !== undefined && value !== null) {
+                    process.env[key] = String(value);
+                }
             }
         }
+    } catch (err) {
+        console.error('\x1b[31m❌ set.js has a syntax error and could not be loaded:\x1b[0m');
+        console.error('   ' + err.message);
+        console.error('\x1b[33m👉 If you pasted a long SESSION_ID into set.js, your editor may have\x1b[0m');
+        console.error('\x1b[33m   inserted a line break into it. Use session_id.txt instead — put the\x1b[0m');
+        console.error('\x1b[33m   whole session string there with nothing else in the file.\x1b[0m');
+    }
+}
+
+// SESSION_ID: prefer a plain text file over set.js. A .txt file can't have
+// JS syntax errors, and we strip all whitespace/newlines when reading it,
+// so it survives editors that auto-wrap long lines.
+const sessionTxtPath = path.join(__dirname, 'session_id.txt');
+if (fs.existsSync(sessionTxtPath)) {
+    try {
+        const raw = fs.readFileSync(sessionTxtPath, 'utf8').replace(/\s+/g, '');
+        if (raw && !raw.includes('PASTE_YOUR_SESSION_ID_HERE')) {
+            process.env.SESSION_ID = raw;
+        }
+    } catch (err) {
+        console.error('\x1b[31m❌ Could not read session_id.txt:\x1b[0m', err.message);
     }
 }
 
