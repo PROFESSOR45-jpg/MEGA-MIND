@@ -60,7 +60,14 @@ async function clearSession() {
 async function startBot() {
     console.log(logo);
 
-    const hasSession = await sessionManager.resolve();
+    let hasSession;
+    try {
+        hasSession = await sessionManager.resolve();
+    } catch (err) {
+        console.log(`${C.r}❌ Session error: ${err.message}${C.r}`);
+        console.log(`${C.y}⛔ Stopping — not generating a QR code.${C.r}`);
+        process.exit(1);
+    }
     const { state, saveCreds } = await useMultiFileAuthState(config.SESSION_DIR);
     const { version, isLatest } = await fetchLatestBaileysVersion();
     console.log(`${C.c}📦 Baileys v${version.join('.')} (latest: ${isLatest})${C.r}`);
@@ -96,8 +103,7 @@ async function startBot() {
         const { connection, lastDisconnect, qr } = update;
 
         if (qr && !hasSession) {
-            console.log(`${C.y}📲 Scan this QR code with WhatsApp (Linked Devices → Link a Device):${C.r}`);
-            qrcode.generate(qr, { small: true });
+            console.log(`${C.r}❌ No valid session — refusing to show QR code. Fix SESSION_ID in set.js and restart.${C.r}`);
         }
 
         if (connection === 'open') {
