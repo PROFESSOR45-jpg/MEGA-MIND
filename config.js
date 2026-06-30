@@ -71,6 +71,20 @@ const config = {
     // Digits only, no + — e.g. 254712345678
     OWNER_NUMBER: (process.env.OWNER_NUMBER || '').replace(/\D/g, ''),
 
+    // ---- Branding ----
+    // Local file used as the bot's WhatsApp profile picture and as the
+    // thumbnail attached to menu/repo/start messages. Falls back to a URL
+    // (e.g. a raw GitHub link) if BOT_IMAGE_URL is set and the local file
+    // is missing — useful on hosts that don't ship the assets folder.
+    BOT_IMAGE: path.join(__dirname, 'assets', 'profile.png'),
+    BOT_IMAGE_URL: process.env.BOT_IMAGE_URL || '',
+    REPO_URL: process.env.REPO_URL || 'https://github.com/PROFESSOR45-jpg/MEGA-MIND',
+    // Title/tagline shown in the boxed header of every branded message,
+    // matching the text on the profile picture itself (e.g. "PROFESSOR
+    // TECH" / "MEGA-MIND BOT"). Defaults to BOT_NAME if not set.
+    BOT_TITLE: process.env.BOT_TITLE || 'PROFESSOR TECH',
+    BOT_TAGLINE: process.env.BOT_TAGLINE || 'MEGA-MIND BOT',
+
     // ---- Session ----
     // Either paste a SESSION_ID directly (format: "MEGA~<base64>"), or set
     // AUTO_FETCH_SESSION=true with a SESSION_ID that is the *session server's*
@@ -107,8 +121,28 @@ const config = {
     WELCOME: bool(process.env.WELCOME, true),
     GOODBYE: bool(process.env.GOODBYE, true),
 
+    // ---- Presence ----
+    // How the bot presents itself while it's working. One of:
+    //   'typing'    — shows "typing..." before every command reply
+    //   'recording' — shows "recording audio..." before every command reply
+    //   'both'      — alternates typing then recording before every reply
+    //   'online'    — stays marked available, no per-message indicator
+    //   'offline'   — stays marked unavailable (invisible) at all times
+    //   'off'       — no presence simulation at all
+    // Editable at runtime with .presence <mode>; persists across restarts.
+    PRESENCE_MODE: process.env.PRESENCE_MODE || 'typing',
+
+    // ---- AI ----
+    AI_API_KEY: process.env.AI_API_KEY || process.env.OPENAI_API_KEY || '',
+    AI_BASE_URL: process.env.AI_BASE_URL || 'https://api.openai.com/v1',
+    AI_MODEL: process.env.AI_MODEL || 'gpt-4o-mini',
+
     // ---- Misc ----
     COMMAND_COOLDOWN_SECONDS: parseInt(process.env.COMMAND_COOLDOWN_SECONDS || '3', 10),
+    // Verbose message-flow logging — prints every incoming message, why it
+    // was or wasn't treated as a command, and where it goes. Turn off in
+    // set.js (DEBUG: false) once things are working; it's noisy long-term.
+    DEBUG: bool(process.env.DEBUG, true),
 
     MESSAGES: {
         OWNER_ONLY: '👑 This command is for the bot owner only.',
@@ -120,5 +154,23 @@ const config = {
         BUG_SENDER_BLOCKED: '🚫 You have been blocked for sending malformed/abusive content.'
     }
 };
+
+// ---- Restore runtime-editable settings saved via WhatsApp commands ----
+// (.presence, .statusemojis, .statusreact, .mode, .setprefix). Wrapped in
+// try/catch so a corrupt database.json never prevents the bot from booting
+// with safe .env defaults instead.
+try {
+    const db = require('./lib/database');
+    const saved = db.getRuntimeSettings();
+    if (saved.presenceMode) config.PRESENCE_MODE = saved.presenceMode;
+    if (Array.isArray(saved.statusReactionEmojis) && saved.statusReactionEmojis.length) {
+        config.STATUS_REACTION_EMOJIS = saved.statusReactionEmojis;
+    }
+    if (typeof saved.statusReact === 'boolean') config.STATUS_REACT = saved.statusReact;
+    if (saved.mode) config.MODE = saved.mode;
+    if (saved.prefix) config.PREFIX = saved.prefix;
+} catch (err) {
+    console.error('⚠️  Could not restore saved runtime settings:', err.message);
+}
 
 module.exports = config;
