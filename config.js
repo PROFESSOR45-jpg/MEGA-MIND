@@ -10,6 +10,24 @@
 const fs = require('fs');
 if (fs.existsSync('.env')) require('dotenv').config();
 
+// Load set.js (manual settings file) if present. Any value set there fills
+// in for that field ONLY if the matching environment variable is not
+// already set — so env vars on hosts that support them still win.
+const path = require('path');
+const setFilePath = path.join(__dirname, 'set.js');
+if (fs.existsSync(setFilePath)) {
+    const manual = require(setFilePath);
+    for (const [key, value] of Object.entries(manual)) {
+        if (process.env[key] === undefined || process.env[key] === '') {
+            if (typeof value === 'boolean') {
+                process.env[key] = value ? 'true' : 'false';
+            } else if (value !== '' && value !== undefined && value !== null) {
+                process.env[key] = String(value);
+            }
+        }
+    }
+}
+
 function bool(value, fallback) {
     if (value === undefined || value === '') return fallback;
     return value === 'true' || value === '1';
