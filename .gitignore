@@ -1,7 +1,0 @@
-node_modules/
-session/
-temp_session/
-session.txt
-database.json
-.env
-npm-debug.log
