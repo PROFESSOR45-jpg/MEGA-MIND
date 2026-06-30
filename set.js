@@ -15,10 +15,10 @@
 module.exports = {
 
     // ============ SESSION ============
-    // Paste your session string here. It must look like: MEGA~xxxxxxxx...
-    // Get one from: https://mega-mind-sessions.onrender.com
-    // (or by running: node lib/getSessionLocal.js)
-    SESSION_ID: 'MEGA~PASTE_YOUR_SESSION_ID_HERE',
+    // Do NOT put your session here. Long session strings break this file
+    // when hosting panel editors auto-wrap long lines.
+    // Instead, open session_id.txt (in this same folder) and paste your
+    // session string there — nothing else in that file, just the string.
 
     // Only needed if you're pasting an MM_xxxx id instead of a MEGA~ one
     AUTO_FETCH_SESSION: false,
