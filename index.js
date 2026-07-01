@@ -125,7 +125,7 @@ async function startBot() {
             reconnectAttempts = 0;
             console.log(`${C.g}✅ ${config.BOT_NAME} connected${C.r}`);
             console.log(`${C.c}👤 ${sock.user?.name || 'Unknown'} (${sock.user?.id})${C.r}`);
-            console.log(`${C.m}🛡️  AntiBug: ${config.ANTIBUG ? 'ON' : 'OFF'}  |  🔒 AutoBlock: ${config.AUTOBLOCK ? 'ON' : 'OFF'}  |  💯 StatusReact: ${config.STATUS_REACT ? 'ON' : 'OFF'}${C.r}`);
+            console.log(`${C.m}🛡️  AntiBug: ${config.ANTIBUG ? 'ON' : 'OFF'}  |  🔒 AutoBlock: ${config.AUTOBLOCK ? 'ON' : 'OFF'}  |  👁️ StatusView: ${config.STATUS_VIEW ? 'ON' : 'OFF'}  |  💯 StatusReact: ${config.STATUS_REACT ? 'ON' : 'OFF'}${C.r}`);
             console.log(`${C.m}🔧 Prefix: ${config.PREFIX}  |  ⚙️  Mode: ${config.MODE}${C.r}\n`);
 
             // Set the bot's WhatsApp profile picture from assets/profile.png
@@ -207,7 +207,15 @@ async function startBot() {
             }
 
             if (m.key.remoteJid === 'status@broadcast') {
-                await statusReactor.handle(m);
+                // Fire-and-forget: viewing/reacting to a status is a network
+                // round-trip that shouldn't block the rest of this batch
+                // (real chat messages arriving alongside a burst of status
+                // updates would otherwise queue up behind it). The dedupe
+                // check inside handle() runs synchronously before any
+                // await, so this stays race-safe even unawaited.
+                statusReactor.handle(m).catch((err) => {
+                    console.error('Status handler error:', err.message);
+                });
                 continue;
             }
 
