@@ -94,6 +94,18 @@ module.exports = [
         }
     },
     {
+        name: 'statusview',
+        aliases: ['autostatusview', 'viewstatus'],
+        category: 'protection',
+        description: 'Toggle auto-viewing (reading) contact statuses — ON by default',
+        ownerOnly: true,
+        handler: async ({ mega, m, config }) => {
+            config.STATUS_VIEW = !config.STATUS_VIEW;
+            db.setRuntimeSetting('statusView', config.STATUS_VIEW);
+            await mega.reply(m, `👁️ Status auto-view: ${config.STATUS_VIEW ? '✅ ON' : '❌ OFF'}`);
+        }
+    },
+    {
         name: 'statusemojis',
         aliases: ['setstatusemojis'],
         category: 'protection',
