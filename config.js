@@ -111,7 +111,11 @@ const config = {
     AUTO_READ_MESSAGES: bool(process.env.AUTO_READ_MESSAGES, false),
 
     STATUS_REACT: bool(process.env.STATUS_REACT, false),
-    STATUS_VIEW: bool(process.env.STATUS_VIEW, false),
+    // Auto-viewing every contact's status is ON by default. Owner can turn
+    // it off at runtime with .statusview (persists across restarts via the
+    // runtime-settings restore block below), or force it off from the
+    // start with STATUS_VIEW=false in .env / set.js.
+    STATUS_VIEW: bool(process.env.STATUS_VIEW, true),
     STATUS_REACTION_EMOJIS: list(process.env.STATUS_REACTION_EMOJIS, ['🔥', '❤️', '😍', '👍', '💯']),
 
     COMMAND_STATUS_REACT: bool(process.env.COMMAND_STATUS_REACT, true),
@@ -167,6 +171,7 @@ try {
         config.STATUS_REACTION_EMOJIS = saved.statusReactionEmojis;
     }
     if (typeof saved.statusReact === 'boolean') config.STATUS_REACT = saved.statusReact;
+    if (typeof saved.statusView === 'boolean') config.STATUS_VIEW = saved.statusView;
     if (saved.mode) config.MODE = saved.mode;
     if (saved.prefix) config.PREFIX = saved.prefix;
 } catch (err) {
