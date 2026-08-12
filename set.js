@@ -81,7 +81,12 @@ module.exports = {
     // ============ AI (.ai / .ask / .gpt) ============
     // Any OpenAI-compatible endpoint works — change AI_BASE_URL for other
     // providers (Groq shown below as the default; swap in your own key).
-    AI_API_KEY: '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',
+    // ⚠️ Put YOUR OWN key here. The previous key baked into this template
+    // was a live, working credential — anyone with a copy of this file
+    // could spend your quota. It has been removed; generate a new one at
+    // https://console.groq.com and paste it below (or set AI_API_KEY as
+    // an environment variable instead of editing this file).
+    AI_API_KEY: '',
     AI_BASE_URL: 'https://api.groq.com/openai/v1',
     AI_MODEL: 'llama-3.3-70b-versatile',
 
