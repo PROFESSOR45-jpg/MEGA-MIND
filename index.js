@@ -57,6 +57,7 @@ const DEAD_SESSION_CODES = [
 ];
 
 let reconnectAttempts = 0;
+let hasSetProfilePic = false;
 const MAX_RECONNECT_ATTEMPTS = 5;
 const MAX_RECONNECT_DELAY_MS = 30000;
 
@@ -129,16 +130,20 @@ async function startBot() {
             console.log(`${C.m}🔧 Prefix: ${config.PREFIX}  |  ⚙️  Mode: ${config.MODE}${C.r}\n`);
 
             // Set the bot's WhatsApp profile picture from assets/profile.png
-            // (or BOT_IMAGE_URL) — only needs to succeed once; harmless if
-            // it fails (e.g. rate-limited), so we never block startup on it.
-            const image = mega.getBotImage();
-            if (image) {
-                try {
-                    await sock.updateProfilePicture(sock.user.id, Buffer.isBuffer(image) ? image : { url: image });
-                    console.log(`${C.g}🖼️  Profile picture updated${C.r}`);
-                } catch (err) {
-                    console.log(`${C.y}⚠️  Could not update profile picture: ${err.message}${C.r}`);
+            // (or BOT_IMAGE_URL) — OFF by default (config.AUTO_SET_PROFILE_PIC)
+            // and, even when enabled, only ever runs once per process
+            // (hasSetProfilePic), not on every reconnect.
+            if (config.AUTO_SET_PROFILE_PIC && !hasSetProfilePic) {
+                const image = mega.getBotImage();
+                if (image) {
+                    try {
+                        await sock.updateProfilePicture(sock.user.id, Buffer.isBuffer(image) ? image : { url: image });
+                        console.log(`${C.g}🖼️  Profile picture updated${C.r}`);
+                    } catch (err) {
+                        console.log(`${C.y}⚠️  Could not update profile picture: ${err.message}${C.r}`);
+                    }
                 }
+                hasSetProfilePic = true;
             }
 
             await presence.applyGlobalPresence();

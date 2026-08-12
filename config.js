@@ -78,6 +78,12 @@ const config = {
     // is missing — useful on hosts that don't ship the assets folder.
     BOT_IMAGE: path.join(__dirname, 'assets', 'profile.png'),
     BOT_IMAGE_URL: process.env.BOT_IMAGE_URL || '',
+    // Off by default: previously the bot re-set its WhatsApp profile picture
+    // on every single reconnect (not just once), which is unnecessary,
+    // trips WhatsApp's rate limits on flaky connections, and overwrites any
+    // picture the owner sets manually. Turn on explicitly with
+    // AUTO_SET_PROFILE_PIC=true if you want the bot to manage its own pic.
+    AUTO_SET_PROFILE_PIC: bool(process.env.AUTO_SET_PROFILE_PIC, false),
     REPO_URL: process.env.REPO_URL || 'https://github.com/PROFESSOR45-jpg/MEGA-MIND',
     // Title/tagline shown in the boxed header of every branded message,
     // matching the text on the profile picture itself (e.g. "PROFESSOR
