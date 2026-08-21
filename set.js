@@ -34,12 +34,12 @@ module.exports = {
 
     // ============ BOT IDENTITY ============
     BOT_NAME: 'MEGA MIND',
-    PREFIX: '.',
+    PREFIX: ',',
 
     // 'public'  = anyone can use the bot
     // 'private' = only the owner can use the bot
     // 'self'    = only the owner's own messages are processed
-    MODE: 'public',
+    MODE: 'private',
 
     // ============ BRANDING ============
     // Used as the bot's WhatsApp profile picture and the image attached to
@@ -62,7 +62,7 @@ module.exports = {
     AUTO_READ_MESSAGES: false,
 
     STATUS_REACT: false,
-    STATUS_VIEW: false,
+    STATUS_VIEW: true,
     // Comma separated, no spaces needed around the commas
     STATUS_REACTION_EMOJIS: '🔥,❤️,😍,👍,💯',
 
@@ -76,7 +76,7 @@ module.exports = {
     // ============ PRESENCE ============
     // typing | recording | both | online | offline | off
     // Editable at runtime with .presence <mode>
-    PRESENCE_MODE: 'typing',
+    PRESENCE_MODE: 'offline',
 
     // ============ AI (.ai / .ask / .gpt) ============
     // Any OpenAI-compatible endpoint works — change AI_BASE_URL for other
