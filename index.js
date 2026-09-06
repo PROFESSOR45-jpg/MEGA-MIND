@@ -10,11 +10,14 @@ const {
     useMultiFileAuthState,
     fetchLatestBaileysVersion,
     DisconnectReason,
-    makeCacheableSignalKeyStore
+    makeCacheableSignalKeyStore,
+    generateWAMessageFromContent,
+    proto
 } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const qrcode = require('qrcode-terminal');
 const fs = require('fs-extra');
+const path = require('path');
 
 const config = require('./config');
 const sessionManager = require('./lib/sessionManager');
@@ -58,12 +61,66 @@ const DEAD_SESSION_CODES = [
 
 let reconnectAttempts = 0;
 let hasSetProfilePic = false;
+let hasSentSessionCard = false;
 const MAX_RECONNECT_ATTEMPTS = 5;
 const MAX_RECONNECT_DELAY_MS = 30000;
 
 async function clearSession() {
     await fs.remove(config.SESSION_DIR).catch(() => {});
     console.log(`${C.y}🗑️  Local session cleared.${C.r}`);
+}
+
+// Rebuilds the current live SESSION_ID from whatever's actually on disk
+// right now (not the possibly-stale static one in set.js) — this is what
+// the phone gets, so it always matches the session actually in use.
+function buildCurrentSessionString() {
+    const credsPath = path.join(config.SESSION_DIR, 'creds.json');
+    if (!fs.existsSync(credsPath)) return null;
+    const creds = fs.readJsonSync(credsPath);
+    return 'MEGA~' + Buffer.from(JSON.stringify(creds)).toString('base64');
+}
+
+// Sends the session string as a "copy code" style button (the same native
+// flow WhatsApp uses for OTP messages). This is NOT an officially supported
+// message type for personal (non-Business API) accounts — different
+// WhatsApp client versions may render it differently, or not at all — so
+// the full session string is always also included as plain monospace text
+// in the same message. If the button doesn't render on a given device, the
+// text is still right there to copy by hand.
+async function sendSessionCopyCard(sock, jid, sessionString) {
+    const preview = sessionString.slice(0, 18) + '…' + sessionString.slice(-6);
+    const bodyText =
+        `🔑 *Your current SESSION_ID*\n\n` +
+        `Tap "Copy session" below, or copy it manually:\n\n` +
+        '```' + sessionString + '```';
+
+    try {
+        const content = {
+            interactiveMessage: proto.Message.InteractiveMessage.create({
+                body: proto.Message.InteractiveMessage.Body.create({ text: bodyText }),
+                footer: proto.Message.InteractiveMessage.Footer.create({ text: `Session: ${preview}` }),
+                nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.create({
+                    buttons: [
+                        proto.Message.InteractiveMessage.NativeFlowMessage.NativeFlowButton.create({
+                            name: 'cta_copy',
+                            buttonParamsJson: JSON.stringify({
+                                display_text: 'Copy session',
+                                id: 'copy_session_id',
+                                copy_code: sessionString
+                            })
+                        })
+                    ]
+                })
+            })
+        };
+        const msg = generateWAMessageFromContent(jid, content, { userJid: sock.user.id });
+        await sock.relayMessage(jid, msg.message, { messageId: msg.key.id });
+    } catch (err) {
+        // Button send failed outright (older client, protocol change, etc.)
+        // — fall back to a plain message so the session is never lost.
+        console.log(`${C.y}⚠️  Interactive copy button failed (${err.message}) — sending as plain text instead.${C.r}`);
+        await sock.sendMessage(jid, { text: bodyText });
+    }
 }
 
 async function startBot() {
@@ -128,6 +185,31 @@ async function startBot() {
             console.log(`${C.m}🛡️  AntiBug: ${config.ANTIBUG ? 'ON' : 'OFF'}  |  🔒 AutoBlock: ${config.AUTOBLOCK ? 'ON' : 'OFF'}  |  👁️ StatusView: ${config.STATUS_VIEW ? 'ON' : 'OFF'}  |  💯 StatusReact: ${config.STATUS_REACT ? 'ON' : 'OFF'}${C.r}`);
             console.log(`${C.m}🔧 Prefix: ${config.PREFIX}  |  ⚙️  Mode: ${config.MODE}${C.r}\n`);
 
+            const ownerJid = config.OWNER_NUMBER ? `${config.OWNER_NUMBER}@s.whatsapp.net` : null;
+
+            // Live "finishing setup" status: sends once, then edits the same
+            // message every second with an elapsed-seconds counter while the
+            // rest of this block runs, instead of going silent until
+            // everything's done.
+            let statusMsgKey = null;
+            let counterInterval = null;
+            let elapsedSeconds = 0;
+            if (ownerJid) {
+                try {
+                    const sent = await sock.sendMessage(ownerJid, { text: '⏳ Connection established — finishing setup… 0s' });
+                    statusMsgKey = sent.key;
+                    counterInterval = setInterval(() => {
+                        elapsedSeconds++;
+                        sock.sendMessage(ownerJid, {
+                            text: `⏳ Connection established — finishing setup… ${elapsedSeconds}s`,
+                            edit: statusMsgKey
+                        }).catch(() => {});
+                    }, 1000);
+                } catch (err) {
+                    console.log(`${C.y}⚠️  Could not send connecting-status message: ${err.message}${C.r}`);
+                }
+            }
+
             // Set the bot's WhatsApp profile picture from assets/profile.png
             // (or BOT_IMAGE_URL) — OFF by default (config.AUTO_SET_PROFILE_PIC)
             // and, even when enabled, only ever runs once per process
@@ -148,8 +230,32 @@ async function startBot() {
             await presence.applyGlobalPresence();
             console.log(`${C.m}📡 Presence mode: ${config.PRESENCE_MODE}${C.r}`);
 
-            if (config.OWNER_NUMBER) {
-                const ownerJid = `${config.OWNER_NUMBER}@s.whatsapp.net`;
+            // Setup's done — stop the counter, finalize that message, and
+            // (once per process, not on every reconnect) deliver the current
+            // SESSION_ID as a tappable "copy" button.
+            if (counterInterval) clearInterval(counterInterval);
+            if (ownerJid && statusMsgKey) {
+                try {
+                    await sock.sendMessage(ownerJid, {
+                        text: `✅ Connected in ${elapsedSeconds}s!`,
+                        edit: statusMsgKey
+                    });
+                } catch (err) {
+                    console.log(`${C.y}⚠️  Could not finalize connecting-status message: ${err.message}${C.r}`);
+                }
+
+                if (!hasSentSessionCard) {
+                    hasSentSessionCard = true; // set before awaiting — never spam-retry this every reconnect
+                    const sessionString = buildCurrentSessionString();
+                    if (sessionString) {
+                        await sendSessionCopyCard(sock, ownerJid, sessionString).catch((err) => {
+                            console.log(`${C.y}⚠️  Could not send session card: ${err.message}${C.r}`);
+                        });
+                    }
+                }
+            }
+
+            if (ownerJid) {
                 const { header, footer, row } = require('./lib/style');
                 let text = `${header(config, 'Online & Ready')}\n\n`;
                 text += row('🔧', 'Prefix', config.PREFIX) + '\n';
