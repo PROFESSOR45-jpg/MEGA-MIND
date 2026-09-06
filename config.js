@@ -33,23 +33,34 @@ if (fs.existsSync(setFilePath)) {
         console.error('\x1b[31m❌ set.js has a syntax error and could not be loaded:\x1b[0m');
         console.error('   ' + err.message);
         console.error('\x1b[33m👉 If you pasted a long SESSION_ID into set.js, your editor may have\x1b[0m');
-        console.error('\x1b[33m   inserted a line break into it. Use session_id.txt instead — put the\x1b[0m');
-        console.error('\x1b[33m   whole session string there with nothing else in the file.\x1b[0m');
+        console.error('\x1b[33m   inserted a line break into it. Either re-paste it as one continuous\x1b[0m');
+        console.error('\x1b[33m   line, or use session_id.txt instead (put the whole session string\x1b[0m');
+        console.error('\x1b[33m   there with nothing else in the file).\x1b[0m');
     }
 }
 
-// SESSION_ID: prefer a plain text file over set.js. A .txt file can't have
-// JS syntax errors, and we strip all whitespace/newlines when reading it,
-// so it survives editors that auto-wrap long lines.
-const sessionTxtPath = path.join(__dirname, 'session_id.txt');
-if (fs.existsSync(sessionTxtPath)) {
-    try {
-        const raw = fs.readFileSync(sessionTxtPath, 'utf8').replace(/\s+/g, '');
-        if (raw && !raw.includes('PASTE_YOUR_SESSION_ID_HERE')) {
-            process.env.SESSION_ID = raw;
+// SESSION_ID: set.js is the primary place for it now. Whichever source it
+// comes from, strip all whitespace/newlines defensively — a hosting panel
+// editor that auto-wraps or reformats a multi-KB string is the single most
+// common way this value gets silently corrupted.
+if (process.env.SESSION_ID) {
+    process.env.SESSION_ID = process.env.SESSION_ID.replace(/\s+/g, '');
+}
+
+// session_id.txt: optional fallback for anyone who prefers keeping the long
+// string out of set.js entirely. Only used if SESSION_ID isn't already set
+// (i.e. set.js/env didn't provide one) — set.js takes priority.
+if (!process.env.SESSION_ID) {
+    const sessionTxtPath = path.join(__dirname, 'session_id.txt');
+    if (fs.existsSync(sessionTxtPath)) {
+        try {
+            const raw = fs.readFileSync(sessionTxtPath, 'utf8').replace(/\s+/g, '');
+            if (raw && !raw.includes('PASTE_YOUR_SESSION_ID_HERE')) {
+                process.env.SESSION_ID = raw;
+            }
+        } catch (err) {
+            console.error('\x1b[31m❌ Could not read session_id.txt:\x1b[0m', err.message);
         }
-    } catch (err) {
-        console.error('\x1b[31m❌ Could not read session_id.txt:\x1b[0m', err.message);
     }
 }
 

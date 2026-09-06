@@ -80,7 +80,6 @@ async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState(config.SESSION_DIR);
     const { version, isLatest } = await fetchLatestBaileysVersion();
     console.log(`${C.c}📦 Baileys v${version.join('.')} (latest: ${isLatest})${C.r}`);
-    console.log(`${C.c}📦 Loaded ${require('./lib/commandHandler').commandCount || 33} commands across 6 categories${C.r}`);
 
     const sock = makeWASocket({
         version,
@@ -244,7 +243,7 @@ async function startBot() {
                 await autoBlock.checkUser(m.key.remoteJid);
             }
 
-            const parsed = parseMessage(m, config.PREFIX);
+            const parsed = parseMessage(m, config.PREFIX, sock.user?.id);
             if (config.DEBUG) {
                 console.log(`${C.c}🐛 From: ${parsed.sender} | jid: ${parsed.jid} | fromMe: ${m.key.fromMe} | text: "${parsed.text}" | isCommand: ${parsed.isCommand} | command: ${parsed.command}${C.r}`);
             }
