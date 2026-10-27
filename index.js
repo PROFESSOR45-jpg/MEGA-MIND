@@ -181,7 +181,7 @@ async function startBot() {
         // WhatsApp treats it as a different/suspicious device and revokes
         // the session — this was the cause of repeated logouts.
         browser: ['Ubuntu', 'Chrome', '22.04.4'],
-        markOnlineOnConnect: true,
+        markOnlineOnConnect: false,
         syncFullHistory: false,
         keepAliveIntervalMs: 30000,
         connectTimeoutMs: 60000,
