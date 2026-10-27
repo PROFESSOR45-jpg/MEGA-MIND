@@ -24,6 +24,7 @@ module.exports = [
                     (c) => c.key === query || c.label.toLowerCase().startsWith(query)
                 );
                 if (match) {
+                    menuState.set(jid, CATEGORIES);
                     const text = renderCategory(match, config, commandHandlerRef);
                     await mega.sendBranded(jid, text, m);
                     return;
@@ -31,7 +32,7 @@ module.exports = [
             }
 
             menuState.set(jid, CATEGORIES);
-            const text = renderMainMenu(config, m.pushName);
+            const text = renderMainMenu(config, m.pushName, commandHandlerRef);
             await mega.sendBranded(jid, text, m);
         }
     },

@@ -34,7 +34,7 @@ const GroupEvents = require('./lib/groupEvents');
 const AntiDelete = require('./lib/antiDelete');
 const { parseMessage } = require('./lib/messageParser');
 const menuState = require('./lib/menuState');
-const { renderCategory } = require('./lib/menuRender');
+const { renderCategory, renderMainMenu, CATEGORIES } = require('./lib/menuRender');
 
 const C = { g: '\x1b[32m', y: '\x1b[33m', r: '\x1b[0m', c: '\x1b[36m', m: '\x1b[35m' };
 
@@ -406,7 +406,10 @@ async function startBot() {
             if (!parsed.isCommand) {
                 const selection = menuState.resolve(parsed.jid, parsed.text);
                 if (selection) {
-                    const text = renderCategory(selection, config, commandHandler);
+                    menuState.set(parsed.jid, CATEGORIES); // keep numbers/0 working after each view
+                    const text = selection.key === '__main'
+                        ? renderMainMenu(config, m.pushName, commandHandler)
+                        : renderCategory(selection, config, commandHandler);
                     await mega.sendBranded(parsed.jid, text, m);
                     continue;
                 }
