@@ -18,6 +18,7 @@ const pino = require('pino');
 const qrcode = require('qrcode-terminal');
 const fs = require('fs-extra');
 const path = require('path');
+const http = require('http');
 
 const config = require('./config');
 const sessionManager = require('./lib/sessionManager');
@@ -43,6 +44,34 @@ ${C.c}╔═══════════════════════�
 ║      WhatsApp Bot — v${config.VERSION}            ║
 ╚═══════════════════════════════════════╝${C.r}
 `;
+
+// ---- health endpoint -------------------------------------------------------
+// Only starts when the host provides PORT (Render "Web Service"). A background
+// worker has no PORT, so nothing is opened there. Point a free uptime monitor
+// at GET /health to keep a free instance awake and to see connection state.
+const healthPort = Number(process.env.PORT || 0);
+const connectionState = { connected: false, user: null };
+
+if (healthPort) {
+    const health = http.createServer((req, res) => {
+        if (req.url !== '/' && req.url !== '/health') {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'not_found' }));
+            return;
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+            ok: true,
+            bot: config.BOT_NAME,
+            version: config.VERSION,
+            connected: connectionState.connected,
+            user: connectionState.user,
+            uptimeSeconds: Math.round(process.uptime())
+        }));
+    });
+    health.on('error', (err) => console.error(`${C.y}⚠️  Health server failed: ${err.message}${C.r}`));
+    health.listen(healthPort, () => console.log(`${C.g}❤️  Health check listening on :${healthPort}${C.r}`));
+}
 
 // Codes that mean the session is dead and cannot be reused.
 // IMPORTANT: 428 (connectionClosed) is NOT included here — it's an ordinary,
@@ -180,6 +209,8 @@ async function startBot() {
 
         if (connection === 'open') {
             reconnectAttempts = 0;
+            connectionState.connected = true;
+            connectionState.user = sock.user?.id || null;
             console.log(`${C.g}✅ ${config.BOT_NAME} connected${C.r}`);
             console.log(`${C.c}👤 ${sock.user?.name || 'Unknown'} (${sock.user?.id})${C.r}`);
             console.log(`${C.m}🛡️  AntiBug: ${config.ANTIBUG ? 'ON' : 'OFF'}  |  🔒 AutoBlock: ${config.AUTOBLOCK ? 'ON' : 'OFF'}  |  👁️ StatusView: ${config.STATUS_VIEW ? 'ON' : 'OFF'}  |  💯 StatusReact: ${config.STATUS_REACT ? 'ON' : 'OFF'}${C.r}`);
@@ -271,6 +302,8 @@ async function startBot() {
 
         if (connection === 'close') {
             const code = lastDisconnect?.error?.output?.statusCode;
+            connectionState.connected = false;
+            connectionState.user = null;
             console.log(`${C.y}❌ Connection closed (code: ${code})${C.r}`);
 
             // Dead session — clear it and stop retrying
@@ -295,7 +328,10 @@ async function startBot() {
             }
 
             reconnectAttempts++;
-            const delay = Math.min(3000 * reconnectAttempts, MAX_RECONNECT_DELAY_MS);
+            // Jitter avoids a thundering herd when several bots/instances retry
+            // on the same WhatsApp outage.
+            const base = Math.min(3000 * reconnectAttempts, MAX_RECONNECT_DELAY_MS);
+            const delay = Math.round(base * (0.8 + Math.random() * 0.4));
             console.log(`${C.y}🔄 Reconnecting in ${delay / 1000}s (attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...${C.r}`);
             setTimeout(startBot, delay);
         }
@@ -340,8 +376,6 @@ async function startBot() {
                 continue;
             }
 
-            db.incrementMessage();
-
             const wasFlagged = await antiBug.handle(m);
             if (wasFlagged) continue;
 
@@ -350,6 +384,7 @@ async function startBot() {
             }
 
             const parsed = parseMessage(m, config.PREFIX, sock.user?.id);
+            db.recordMessage(parsed.sender);
             if (config.DEBUG) {
                 console.log(`${C.c}🐛 From: ${parsed.sender} | jid: ${parsed.jid} | fromMe: ${m.key.fromMe} | text: "${parsed.text}" | isCommand: ${parsed.isCommand} | command: ${parsed.command}${C.r}`);
             }
@@ -361,6 +396,9 @@ async function startBot() {
 
             const linkHandled = await groupEvents.checkAntiLink(parsed);
             if (linkHandled) continue;
+
+            const forwardHandled = await groupEvents.checkAntiForward(parsed);
+            if (forwardHandled) continue;
 
             // "Reply with a number" menu navigation — only applies when the
             // chat has a pending menu (sent by .menu) and the message isn't
@@ -416,4 +454,11 @@ startBot().catch((err) => {
 
 process.on('unhandledRejection', (err) => {
     console.error('Unhandled rejection:', err);
+});
+
+// Keep serving instead of dying on a stray async error from a single command.
+// The socket lifecycle has its own recovery; exiting here would drop every
+// group until the host restarts the process.
+process.on('uncaughtException', (err) => {
+    console.error('Uncaught exception (process kept alive):', err);
 });

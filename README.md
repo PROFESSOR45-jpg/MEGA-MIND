@@ -59,23 +59,29 @@ explanations) and are read once into `config.js`. Key ones:
 
 ## Feature set (core)
 
-**General** — `.menu` `.ping` `.info` `.alive` `.owner`
+**General** — `.menu` `.ping` `.info` `.alive` `.owner` `.stats` `.top`
 
 **Group admin** *(admin-only, bot must be group admin)* — `.kick` `.add`
 `.promote` `.demote` `.mute` `.unmute` `.tagall` `.groupinfo` `.setname`
-`.setdesc`
+`.setdesc` `.warn` `.clearwarn` (`.warns` is open to all members)
 
 **Protection** *(owner/admin-controlled toggles)*
 - AntiLink — deletes invite links from non-admins, per group
+- AntiForward — deletes forwarded messages from non-admins, per group
 - AntiDelete — resends "deleted for everyone" messages, per group
-- Welcome / Goodbye — greets joins, notes departures, per group
+- Welcome / Goodbye — greets joins, notes departures, per group, with
+  editable templates (`.setwelcome` / `.setgoodbye`, `.resetwelcome` /
+  `.resetgoodbye`). Placeholders: `{user}`, `{group}`, `{count}`.
+- Warnings — `.warn` a member up to 3 times, then they're removed
 - AntiBug — filters malformed/oversized/abusive incoming payloads (defensive only — this bot does not include tools for sending malformed payloads to anyone)
 - AutoBlock — auto-blocks non-owner DMs when `MODE=private`
 - Status auto-react / auto-view
 - `.mode` `.setprefix` `.statusreact` `.antibug`
 
 **Media** — `.sticker` (image/video → sticker), `.toimg` (sticker → image),
-`.take` (re-pack a sticker with new pack/author name)
+`.take` (re-pack a sticker with new pack/author name), `.viewonce` (reply to
+view-once media to re-send it normally, or to normal media to send it as
+view-once)
 
 **Utility** — `.afk`, `.block` / `.unblock` (WhatsApp-level, owner only),
 `.broadcast` (owner only, message every group the bot is in)
@@ -96,7 +102,7 @@ lib/
   megaHandler.js         shared helpers (send/reply, group admin actions, perms)
   commandHandler.js      loads commands/, dispatches + enforces permissions
   messageParser.js        normalizes Baileys' message shape into simple fields
-  groupEvents.js          antilink + welcome/goodbye (event-driven, not commands)
+  groupEvents.js          antilink/antiforward + welcome/goodbye (event-driven, not commands)
   antiDelete.js            caches messages, resends them if deleted
   antibug.js               defensive filter for malformed incoming messages
   autoBlock.js             private-mode auto-block
@@ -113,6 +119,20 @@ Works on Render, Railway, Heroku-style platforms. `Procfile` and `render.yaml`
 are included. Needs a **persistent disk** (or equivalent) if you want the
 `./session` folder and `database.json` to survive restarts — otherwise you'll
 need to re-link after every redeploy.
+
+### Health check
+
+If the service is a Render **Web Service** (so it receives `PORT`), the bot
+starts a tiny HTTP server:
+
+- `GET /health` → `{ ok, bot, version, connected, user, uptimeSeconds }`
+
+Point a free uptime monitor (UptimeRobot, cron-job.org) at it to keep a free
+instance awake. Deployed as a **worker** (no `PORT`), the endpoint is skipped —
+workers are kept alive by the platform instead.
+
+The bot also survives stray async errors (`uncaughtException` is logged rather
+than fatal) and retries disconnects with jittered backoff.
 
 ## A note on safety
 

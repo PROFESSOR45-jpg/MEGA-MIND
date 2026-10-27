@@ -27,6 +27,14 @@ module.exports = [
         handler: toggleHandler('🔗 AntiLink', 'antilink')
     },
     {
+        name: 'antiforward',
+        category: 'protection',
+        description: 'Toggle auto-delete of forwarded messages in this group',
+        groupOnly: true,
+        adminOnly: true,
+        handler: toggleHandler('➡️ AntiForward', 'antiforward')
+    },
+    {
         name: 'antidelete',
         category: 'protection',
         description: 'Toggle resending deleted messages in this group',
@@ -43,12 +51,76 @@ module.exports = [
         handler: toggleHandler('👋 Welcome messages', 'welcome')
     },
     {
+        name: 'setwelcome',
+        category: 'protection',
+        description: 'Set the welcome message template',
+        groupOnly: true,
+        adminOnly: true,
+        handler: async ({ mega, m, jid, argsText }) => {
+            const text = (argsText || '').trim();
+            if (!text) {
+                const group = db.getGroup(jid);
+                await mega.reply(
+                    m,
+                    `Current template:\n${group.welcomeText || '(default)'}\n\n` +
+                    `Usage: .setwelcome Welcome {user} to *{group}*! We are now {count}.`
+                );
+                return;
+            }
+            db.updateGroup(jid, { welcomeText: text, welcome: true });
+            await mega.reply(m, `✅ Welcome message set and enabled:\n\n${text}`);
+        }
+    },
+    {
+        name: 'resetwelcome',
+        category: 'protection',
+        description: 'Reset the welcome message to the default',
+        groupOnly: true,
+        adminOnly: true,
+        handler: async ({ mega, m, jid }) => {
+            db.updateGroup(jid, { welcomeText: '' });
+            await mega.reply(m, '✅ Welcome message reset to default.');
+        }
+    },
+    {
         name: 'goodbye',
         category: 'protection',
         description: 'Toggle goodbye messages for leaving members',
         groupOnly: true,
         adminOnly: true,
         handler: toggleHandler('👋 Goodbye messages', 'goodbye')
+    },
+    {
+        name: 'setgoodbye',
+        category: 'protection',
+        description: 'Set the goodbye message template',
+        groupOnly: true,
+        adminOnly: true,
+        handler: async ({ mega, m, jid, argsText }) => {
+            const text = (argsText || '').trim();
+            if (!text) {
+                const group = db.getGroup(jid);
+                await mega.reply(
+                    m,
+                    `Current template:\n${group.goodbyeText || '(default)'}\n\n` +
+                    `Usage: .setgoodbye {user} left us. We are now {count}.`
+                );
+                return;
+            }
+            db.updateGroup(jid, { goodbyeText: text, goodbye: true });
+            await mega.reply(m, `✅ Goodbye message set and enabled:\n\n${text}`);
+        }
+    },
+    {
+        name: 'resetgoodbye',
+        category: 'protection',
+        description: 'Reset the goodbye message to the default',
+        groupOnly: true,
+        adminOnly: true,
+        handler: async ({ mega, m, jid }) => {
+            db.updateGroup(jid, { goodbyeText: '' });
+            await mega.reply(m, '✅ Goodbye message reset to default.');
+        }
     },
     {
         name: 'mode',

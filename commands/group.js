@@ -4,6 +4,8 @@
  * and (where they change group state) require the bot itself to be admin.
  */
 
+const db = require('../lib/database');
+
 function targetFromArgsOrQuoted({ mentions, quoted, args }) {
     if (mentions?.length) return mentions[0];
     if (quoted?.key?.participant) return quoted.key.participant;
@@ -171,6 +173,86 @@ module.exports = [
             }
             await sock.groupUpdateDescription(jid, argsText);
             await mega.reply(m, '✅ Group description updated.');
+        }
+    },
+    {
+        name: 'warn',
+        category: 'group',
+        description: 'Warn a member (3 warnings removes them)',
+        groupOnly: true,
+        adminOnly: true,
+        requireBotAdmin: true,
+        handler: async ({ mega, m, jid, mentions, quoted, args, sender }) => {
+            const target = targetFromArgsOrQuoted({ mentions, quoted, args });
+            if (!target) {
+                await mega.reply(m, 'Mention, reply to, or give the number of the person to warn.');
+                return;
+            }
+            if (target === sender) {
+                await mega.reply(m, "You can't warn yourself.");
+                return;
+            }
+            const user = db.getUser(target);
+            user.warnings = (user.warnings || 0) + 1;
+            db.save();
+
+            const mention = [target];
+            const tag = `@${target.split('@')[0]}`;
+
+            if (user.warnings >= 3) {
+                const ok = await mega.kick(jid, target);
+                db.updateUser(target, { warnings: 0 });
+                await mega.sock.sendMessage(jid, {
+                    text: ok
+                        ? `🚫 ${tag} reached 3 warnings and was removed.`
+                        : `⚠️ ${tag} reached 3 warnings but could not be removed.`,
+                    mentions: mention
+                }, { quoted: m });
+                return;
+            }
+
+            await mega.sock.sendMessage(jid, {
+                text: `⚠️ ${tag} warned (${user.warnings}/3).\nAnother ${3 - user.warnings} and they'll be removed.`,
+                mentions: mention
+            }, { quoted: m });
+        }
+    },
+    {
+        name: 'warns',
+        category: 'group',
+        description: "Check a member's warning count",
+        groupOnly: true,
+        handler: async ({ mega, m, mentions, quoted, args }) => {
+            const target = targetFromArgsOrQuoted({ mentions, quoted, args });
+            if (!target) {
+                await mega.reply(m, 'Mention, reply to, or give the number of the person to check.');
+                return;
+            }
+            const user = db.getUser(target);
+            await mega.sock.sendMessage(m.key.remoteJid, {
+                text: `@${target.split('@')[0]} has ${user.warnings || 0}/3 warnings.`,
+                mentions: [target]
+            }, { quoted: m });
+        }
+    },
+    {
+        name: 'clearwarn',
+        aliases: ['resetwarn'],
+        category: 'group',
+        description: "Clear a member's warnings",
+        groupOnly: true,
+        adminOnly: true,
+        handler: async ({ mega, m, mentions, quoted, args }) => {
+            const target = targetFromArgsOrQuoted({ mentions, quoted, args });
+            if (!target) {
+                await mega.reply(m, 'Mention, reply to, or give the number of the person to clear.');
+                return;
+            }
+            db.updateUser(target, { warnings: 0 });
+            await mega.sock.sendMessage(m.key.remoteJid, {
+                text: `✅ Warnings cleared for @${target.split('@')[0]}.`,
+                mentions: [target]
+            }, { quoted: m });
         }
     }
 ];

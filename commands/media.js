@@ -5,6 +5,9 @@
  */
 
 const { Sticker, StickerTypes } = require('wa-sticker-formatter');
+const { unwrapViewOnce, isViewOnce } = require('../lib/messageParser');
+
+const MEDIA_KEYS = ['imageMessage', 'videoMessage', 'audioMessage'];
 
 module.exports = [
     {
@@ -71,6 +74,59 @@ module.exports = [
 
             const buffer = await sticker.toBuffer();
             await mega.sendSticker(jid, buffer, m);
+        }
+    },
+    {
+        name: 'viewonce',
+        aliases: ['vv', 'openonce'],
+        category: 'media',
+        description: 'Reply to view-once media to re-send it normally, or to normal media to send it as view-once',
+        cooldown: 3,
+        handler: async ({ mega, m, quoted, jid, sock }) => {
+            if (!quoted?.message) {
+                await mega.reply(
+                    m,
+                    'Reply to an image/video/audio with *.viewonce*:\n' +
+                    '• view-once media → re-sent so it can be viewed normally\n' +
+                    '• normal media → sent as view-once'
+                );
+                return;
+            }
+
+            const inner = unwrapViewOnce(quoted.message);
+            const key = MEDIA_KEYS.find((k) => inner[k]);
+            if (!key) {
+                await mega.reply(m, 'That reply has no image, video or audio to work with.');
+                return;
+            }
+
+            const type = key.replace('Message', '');
+            const wasViewOnce = isViewOnce(quoted.message);
+
+            let media;
+            try {
+                media = await mega.downloadMedia(quoted);
+            } catch (err) {
+                await mega.reply(m, `❌ Could not download that media: ${err.message}`);
+                return;
+            }
+            if (!media?.buffer?.length) {
+                await mega.reply(m, '❌ Could not download that media — it may have expired.');
+                return;
+            }
+
+            const payload = { [type]: media.buffer, mimetype: media.mimetype };
+
+            if (wasViewOnce) {
+                if (inner[key].caption) payload.caption = inner[key].caption;
+                await sock.sendMessage(jid, payload, { quoted: m });
+                return;
+            }
+
+            payload.viewOnce = true;
+            if (inner[key].caption && type !== 'audio') payload.caption = inner[key].caption;
+            if (type === 'audio' && inner[key].ptt) payload.ptt = true;
+            await sock.sendMessage(jid, payload, { quoted: m });
         }
     }
 ];
