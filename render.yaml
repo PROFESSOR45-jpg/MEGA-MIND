@@ -1,12 +1,9 @@
 services:
   - type: worker
     name: mega-mind-bot
-    env: node
-    buildCommand: npm install
-    startCommand: npm start
+    runtime: docker
+    dockerfilePath: ./Dockerfile
     envVars:
-      - key: NODE_VERSION
-        value: 18.17.0
       - key: BOT_NAME
         value: MEGA MIND
       - key: OWNER_NUMBER
@@ -21,3 +18,14 @@ services:
         value: "."
       - key: MODE
         value: public
+      # ---- Downloaders (all optional) ----
+      - key: MAX_DOWNLOAD_MB
+        value: "100"
+      - key: SEND_INLINE_MB
+        value: "45"
+      - key: YTDLP_MAX_HEIGHT
+        value: "720"
+      - key: DL_MAX_CONCURRENT
+        value: "2"
+      - key: YTDLP_COOKIES_B64
+        sync: false
