@@ -32,7 +32,7 @@ const CommandReactor = require('./lib/commandReactor');
 const CommandHandler = require('./lib/commandHandler');
 const GroupEvents = require('./lib/groupEvents');
 const AntiDelete = require('./lib/antiDelete');
-const { parseMessage } = require('./lib/messageParser');
+const { parseMessage, getText } = require('./lib/messageParser');
 const menuState = require('./lib/menuState');
 const { renderCategory, renderMainMenu, CATEGORIES } = require('./lib/menuRender');
 
@@ -186,7 +186,7 @@ async function startBot() {
         keepAliveIntervalMs: 30000,
         connectTimeoutMs: 60000,
         defaultQueryTimeoutMs: 60000,
-        generateHighQualityLinkPreview: true
+        generateHighQualityLinkPreview: false
     });
 
     const mega = new MegaHandler(sock, config);
@@ -339,11 +339,35 @@ async function startBot() {
 
     sock.ev.on('creds.update', saveCreds);
 
-    sock.ev.on('messages.upsert', async ({ messages, type }) => {
-        if (config.DEBUG) console.log(`${C.c}🐛 messages.upsert fired — type: ${type}, count: ${messages.length}${C.r}`);
+    // Commands the owner types on their own phone can arrive as type
+    // "append" instead of "notify" on some Baileys versions, and were being
+    // dropped silently. Accept those too, but only when they are fresh, sent
+    // by the owner's own account, and start with the prefix (so the bot's own
+    // replies, which also show up as "append", are never re-processed).
+    const seenAppend = new Set();
+    const tsSeconds = (ts) => (ts && typeof ts === 'object' && ts.toNumber ? ts.toNumber() : Number(ts)) || 0;
+
+    sock.ev.on('messages.upsert', async ({ messages: incoming, type }) => {
+        if (config.DEBUG) console.log(`${C.c}🐛 messages.upsert fired — type: ${type}, count: ${incoming.length}${C.r}`);
+        let messages = incoming;
         if (type !== 'notify') {
-            if (config.DEBUG) console.log(`${C.y}🐛 Ignored — type "${type}" is not "notify"${C.r}`);
-            return;
+            const nowSec = Date.now() / 1000;
+            messages = incoming.filter((m) =>
+                m.message &&
+                m.key?.fromMe &&
+                !seenAppend.has(m.key.id) &&
+                nowSec - tsSeconds(m.messageTimestamp) < 60 &&
+                getText(m).startsWith(config.PREFIX)
+            );
+            if (!messages.length) {
+                if (config.DEBUG) console.log(`${C.y}🐛 Ignored — type "${type}" is not "notify"${C.r}`);
+                return;
+            }
+            for (const m of messages) {
+                seenAppend.add(m.key.id);
+                if (seenAppend.size > 500) seenAppend.delete(seenAppend.values().next().value);
+            }
+            if (config.DEBUG) console.log(`${C.g}🐛 Accepted ${messages.length} fresh owner command(s) delivered as "${type}"${C.r}`);
         }
 
         for (const m of messages) {
@@ -421,15 +445,13 @@ async function startBot() {
                     console.log(`${C.c}🐛 Dispatching "${parsed.command}" — registered: ${Boolean(found)}${C.r}`);
                 }
                 presence.simulate(parsed.jid); // fire-and-forget, never blocks the reply
-                try {
-                    await commandHandler.dispatch(parsed);
-                } catch (err) {
-                    // commandHandler.dispatch already has its own try/catch around
-                    // individual handlers, but this is a last-resort net so a bug
-                    // anywhere in the dispatch path logs loudly instead of just
-                    // going silent.
+                // Not awaited: a slow command (a download can take minutes)
+                // must not hold up every other message behind it.
+                commandHandler.dispatch(parsed).catch((err) => {
+                    // last-resort net so a bug anywhere in the dispatch path
+                    // logs loudly instead of just going silent.
                     console.error(`${C.r}❌ Dispatch error for "${parsed.command}":${C.r}`, err);
-                }
+                });
             }
         }
     });
