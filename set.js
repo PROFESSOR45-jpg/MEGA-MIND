@@ -103,4 +103,23 @@ module.exports = {
     // "commands don't respond" issues. Set to false once everything works.
     DEBUG: true,
 
+    // ============ DOWNLOADER (mega-dl service) ============
+    // Point the bot at a mega-dl instance so downloads run on a host that has
+    // yt-dlp + ffmpeg. Leave DL_API_URL empty to fall back to a local yt-dlp.
+    // DOWNLOAD_API_URL / DOWNLOAD_API_SECRET are accepted as aliases.
+    // The URL is the service root — no /download on the end.
+    DL_API_URL: '',
+    DL_API_SECRET: '',
+
+    // Cookies (Netscape cookies.txt). Without them YouTube and Instagram
+    // block the server's IP. Either paste the file as base64, or point at it.
+    YTDLP_COOKIES_B64: '',
+    YTDLP_COOKIES_FILE: '',
+
+    // Download limits.
+    MAX_DOWNLOAD_MB: 100,
+    YTDLP_MAX_HEIGHT: 720,
+    DL_MAX_CONCURRENT: 2,
+    DL_TIMEOUT_SECONDS: 180,
+
 };

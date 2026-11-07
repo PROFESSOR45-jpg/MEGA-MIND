@@ -19,6 +19,11 @@ services:
       - key: MODE
         value: public
       # ---- Downloaders (all optional) ----
+      # Point the bot at a mega-dl instance (service root, no /download).
+      - key: DL_API_URL
+        sync: false
+      - key: DL_API_SECRET
+        sync: false
       - key: MAX_DOWNLOAD_MB
         value: "100"
       - key: SEND_INLINE_MB

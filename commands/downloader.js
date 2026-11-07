@@ -48,14 +48,23 @@ async function deliver({ mega, m, jid, config }, kind, res) {
     const mb = res.size / (1024 * 1024);
     const dur = fmtDuration(res.duration);
     const info = [res.uploader, dur].filter(Boolean).join(' • ');
+    // The downloader service reports what it actually produced: an Instagram
+    // photo comes back as an image, not as a video.
+    const type = res.kind === 'image' ? 'image' : res.kind === 'audio' ? 'audio' : kind;
 
-    if (kind === 'audio') {
+    if (type === 'audio') {
         await mega.reply(m, `🎵 *${res.title}*${info ? `\n${info}` : ''}`);
         if (mb <= INLINE_MB()) {
-            await mega.sendAudio(jid, res.file, m);
+            await mega.sendAudio(jid, res.file, m, res.mimetype || 'audio/mpeg');
         } else {
-            await mega.sendDocument(jid, res.file, cleanFileName(res.title, 'mp3'), 'audio/mpeg', '', m);
+            await mega.sendDocument(jid, res.file, cleanFileName(res.title, 'mp3'), res.mimetype || 'audio/mpeg', '', m);
         }
+        return;
+    }
+
+    if (type === 'image') {
+        const caption = `🖼️ *${res.title}*${info ? `\n${info}` : ''}\n\n_${config.BOT_NAME}_`;
+        await mega.sendImage(jid, res.file, caption, m);
         return;
     }
 
@@ -63,7 +72,7 @@ async function deliver({ mega, m, jid, config }, kind, res) {
     if (mb <= INLINE_MB()) {
         await mega.sendVideo(jid, res.file, caption, m);
     } else {
-        await mega.sendDocument(jid, res.file, cleanFileName(res.title, 'mp4'), 'video/mp4', caption, m);
+        await mega.sendDocument(jid, res.file, cleanFileName(res.title, 'mp4'), res.mimetype || 'video/mp4', caption, m);
     }
 }
 
