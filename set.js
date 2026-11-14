@@ -29,14 +29,14 @@ module.exports = {
     // carefully in a plain text editor first, or fall back to
     // session_id.txt in this same folder, which strips whitespace
     // automatically and can't have JS syntax errors.
-    SESSION_ID: 'MEGA~eyJ',
+    SESSION_ID: '',
     AUTO_FETCH_SESSION: false,
     SESSION_SERVER_URL: '',
 
     // ============ OWNER ============
     // Your WhatsApp number, digits only, with country code, no + and no spaces
     // Example: Kenya number 0712345678 -> 254712345678
-    OWNER_NUMBER: '254112658916',
+    OWNER_NUMBER: '',
     OWNER_NAME: 'Professor',
 
     // ============ BOT IDENTITY ============
